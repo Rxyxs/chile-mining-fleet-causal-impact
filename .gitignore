@@ -1,0 +1,19 @@
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+.env
+.DS_Store
+
+# Datos sinteticos (se regeneran con `python -m src.pipeline`)
+data/raw/*.csv
+!data/raw/.gitkeep
+
+# Artefactos del pipeline que se regeneran (las figuras SI quedan versionadas)
+outputs/reports/*
+!outputs/reports/.gitkeep
+!outputs/figures/*.png
+
+CLAUDE.md
+.claude/
