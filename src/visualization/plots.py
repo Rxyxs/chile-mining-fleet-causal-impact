@@ -1,11 +1,21 @@
 """Renders every figure used in the README from real pipeline output."""
 from __future__ import annotations
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
+import matplotlib
 
-COLORS = {"s_learner": "#4C72B0", "t_learner": "#DD8452", "x_learner": "#55A868", "causal_forest": "#C44E52"}
+# Every figure here is saved straight to disk, never shown interactively --
+# forcing the non-interactive Agg backend avoids loading Tk at all, which on
+# this machine otherwise throws harmless-but-noisy `RuntimeError`s from
+# Tkinter's `__del__` during interpreter shutdown once joblib's worker
+# threads (spawned by cross-fitting in econml's DRLearner/CausalForestDML)
+# are in play.
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+
+COLORS = {"s_learner": "#4C72B0", "t_learner": "#DD8452", "x_learner": "#55A868", "causal_forest": "#C44E52", "doubly_robust": "#8172B3"}
 
 
 def plot_covariate_balance(df: pd.DataFrame, covariates: list[str], treatment_col: str, out_path) -> pd.DataFrame:
@@ -84,6 +94,38 @@ def plot_targeting_policy_comparison(policy_df: pd.DataFrame, out_path) -> None:
     ax.barh(order["policy"], order["total_hours_saved"], color=colors)
     ax.set_xlabel("Total hours saved (true counterfactual) at fixed budget")
     ax.set_title("Targeting policy comparison")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
+def plot_honest_bounds(bounds: pd.DataFrame, observed_att: float, breakdown_m: float | None, out_path) -> None:
+    fig, ax = plt.subplots(figsize=(8, 5.5))
+    ax.fill_between(bounds["m"], bounds["lower"], bounds["upper"], color="#8172B3", alpha=0.25, label="Honest bound")
+    ax.plot(bounds["m"], bounds["lower"], color="#8172B3", linewidth=1)
+    ax.plot(bounds["m"], bounds["upper"], color="#8172B3", linewidth=1)
+    ax.axhline(0, color="black", linewidth=1, linestyle="--", label="Zero effect")
+    ax.axhline(observed_att, color="#C44E52", linewidth=1.5, linestyle=":", label="Point estimate")
+    if breakdown_m is not None:
+        ax.axvline(breakdown_m, color="gray", linewidth=1, linestyle="-.", label=f"Breakdown M = {breakdown_m:.2f}")
+    ax.set_xlabel("M (assumed violation, x largest observed pre-trend deviation)")
+    ax.set_ylabel("Bounded ATT (hours)")
+    ax.set_title("Honest bounds under a hypothesized parallel-trends violation")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
+def plot_violation_sensitivity_sweep(sweep: pd.DataFrame, true_att: float, out_path) -> None:
+    fig, ax = plt.subplots(figsize=(8, 5.5))
+    ax.plot(sweep["violation_per_month"], sweep["estimated_att"], marker="o", color="#4C72B0", label="Estimated ATT under injected violation")
+    ax.axhline(true_att, color="#55A868", linewidth=1.5, linestyle="--", label="True ATT (no violation)")
+    ax.axvline(0, color="gray", linewidth=0.8, linestyle=":")
+    ax.set_xlabel("Injected pre-trend violation (hours/month)")
+    ax.set_ylabel("Estimated overall ATT (hours)")
+    ax.set_title("Empirical sensitivity: estimator bias vs. injected violation size")
+    ax.legend()
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)

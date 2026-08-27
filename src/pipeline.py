@@ -16,16 +16,25 @@ from sklearn.model_selection import train_test_split
 from src.data.simulate_rct import simulate_rct
 from src.data.simulate_staggered_did import simulate_staggered_panel
 from src.evaluation.did_estimators import aggregate_event_study, group_time_att, naive_twfe_att, overall_att
+from src.evaluation.sensitivity_analysis import (
+    compute_placebo_pretrend_atts,
+    honest_bounds,
+    run_violation_sensitivity_sweep,
+    summarize_pretrend_test,
+)
 from src.evaluation.targeting_policy import evaluate_targeting_policies
 from src.evaluation.uplift_metrics import cate_calibration_bins, cate_recovery_correlation, qini_coefficient, uplift_curve
 from src.models.causal_forest import CausalForestModel
+from src.models.dr_learner import DoublyRobustModel
 from src.models.meta_learners import SLearner, TLearner, XLearner
 from src.visualization.plots import (
     plot_cate_calibration,
     plot_covariate_balance,
     plot_event_study,
+    plot_honest_bounds,
     plot_qini_curves,
     plot_targeting_policy_comparison,
+    plot_violation_sensitivity_sweep,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -63,6 +72,7 @@ def run_part_a(rct_df: pd.DataFrame) -> dict:
         "t_learner": TLearner().fit(X_train, T_train, Y_train),
         "x_learner": XLearner().fit(X_train, T_train, Y_train),
         "causal_forest": CausalForestModel().fit(X_train, T_train, Y_train),
+        "doubly_robust": DoublyRobustModel().fit(X_train, T_train, Y_train),
     }
 
     cate_predictions = {name: model.predict_cate(X_test) for name, model in models.items()}
@@ -121,11 +131,26 @@ def run_part_b(panel_df: pd.DataFrame) -> dict:
 
     true_att = float(panel_df.loc[panel_df["treated"] == 1, "true_effect_hours"].mean())
 
+    # Sensitivity analysis: is the group-time ATT robust to a violation of
+    # parallel trends? Three checks, see src/evaluation/sensitivity_analysis.py.
+    placebo_atts = compute_placebo_pretrend_atts(panel_df)
+    pretrend_summary = summarize_pretrend_test(placebo_atts)
+
+    bounds, breakdown_m = honest_bounds(overall_corrected_att, pretrend_summary["max_abs_placebo_att"])
+    plot_honest_bounds(bounds, overall_corrected_att, breakdown_m, FIGURES_DIR / "honest_bounds.png")
+
+    violation_grid = np.linspace(-2.0, 2.0, 9)
+    sweep = run_violation_sensitivity_sweep(panel_df, violation_grid)
+    plot_violation_sensitivity_sweep(sweep, true_att, FIGURES_DIR / "violation_sensitivity_sweep.png")
+
     return {
         "naive_twfe": naive,
         "group_time_overall_att": overall_corrected_att,
         "true_overall_att": true_att,
         "event_study": event_study.to_dict(orient="records"),
+        "pretrend_test": pretrend_summary,
+        "honest_bounds_breakdown_m": breakdown_m,
+        "violation_sensitivity_sweep": sweep.to_dict(orient="records"),
     }
 
 
@@ -143,7 +168,7 @@ def main() -> None:
     print(f"True ATE (test set): {part_a_results['true_ate_test_set']:.2f}h")
     print("Qini coefficients:", {k: round(v, 3) for k, v in part_a_results["qini_coefficients"].items()})
     print("CATE recovery correlation (predicted vs. true):", {k: round(v, 3) for k, v in part_a_results["cate_recovery_correlation"].items()})
-    print(f"Best model by Qini: {part_a_results['best_model']}")
+    print(f"Best model by ground-truth recovery: {part_a_results['best_model']}")
     print("\nTargeting policy comparison:")
     print(pd.DataFrame(part_a_results["targeting_policy_comparison"]))
 
@@ -155,6 +180,12 @@ def main() -> None:
     print(f"Naive TWFE ATT: {part_b_results['naive_twfe']['att']:.2f}h (se={part_b_results['naive_twfe']['se']:.2f})")
     print(f"Group-time (corrected) overall ATT: {part_b_results['group_time_overall_att']:.2f}h")
     print(f"True overall ATT: {part_b_results['true_overall_att']:.2f}h")
+
+    pretrend = part_b_results["pretrend_test"]
+    print(f"\nPlacebo pre-trend test: mean={pretrend['mean_placebo_att']:.3f}h, "
+          f"max|placebo|={pretrend['max_abs_placebo_att']:.3f}h, n={pretrend['n_placebo_estimates']}")
+    breakdown_m = part_b_results["honest_bounds_breakdown_m"]
+    print(f"Honest-bounds breakdown M: {breakdown_m:.2f}" if breakdown_m is not None else "Honest-bounds breakdown M: none within grid")
 
     all_results = {"part_a_rct_uplift": part_a_results, "part_b_staggered_did": part_b_results}
     (REPORTS_DIR / "results.json").write_text(json.dumps(all_results, indent=2, default=str), encoding="utf-8")
