@@ -316,12 +316,12 @@ La curva de event-study muestra el efecto empezando cerca de cero en la adopció
 
 ---
 
-# 9. Autor
-
-**Pablo Reyes** — [github.com/Rxyxs](https://github.com/Rxyxs)
-
-## Fuente de datos y licencia
+# 9. Fuente de datos y licencia
 
 Ambos datasets son **simulados sintéticamente** (`src/data/simulate_rct.py`, `src/data/simulate_staggered_did.py`) con una semilla fija (42) — no hay dependencia de datos externos. Cada simulador se construye con un efecto de tratamiento real conocido específicamente para que los estimadores de este proyecto puedan validarse contra una respuesta real, algo que no es observable en ningún problema de inferencia causal del mundo real.
 
 Código: MIT — ver [LICENSE](LICENSE).
+
+# 10. Autor
+
+**Pablo Reyes** — [github.com/Rxyxs](https://github.com/Rxyxs)

@@ -316,12 +316,12 @@ The event-study curve shows the effect starting near zero at adoption and growin
 
 ---
 
-# 9. Author
-
-**Pablo Reyes** — [github.com/Rxyxs](https://github.com/Rxyxs)
-
-## Data source & license
+# 9. Data source & license
 
 Both datasets are **synthetically simulated** (`src/data/simulate_rct.py`, `src/data/simulate_staggered_did.py`) with a fixed seed (42) — there is no external data dependency. Each simulator is built with a known true treatment effect specifically so this project's estimators can be validated against a real answer, which is not observable in any real-world causal inference problem.
 
 Code: MIT — see [LICENSE](LICENSE).
+
+# 10. Author
+
+**Pablo Reyes** — [github.com/Rxyxs](https://github.com/Rxyxs)
