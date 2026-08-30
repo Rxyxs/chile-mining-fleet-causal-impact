@@ -31,6 +31,16 @@ Una operación minera que evalúa un programa de mantenimiento proactivo para su
 
 Ambos datasets acá son sintéticos — no existe un dataset público y gratuito que combine asignación aleatorizada de mantenimiento a nivel individual con un despliegue escalonado a nivel de sitio del mismo programa — pero cada uno se construye con un **efecto real conocido y deliberadamente no trivial** (heterogéneo por edad/utilización del camión en la Parte A; dinámico, creciendo en los meses posteriores a la adopción en la Parte B) específicamente para que los estimadores de este proyecto puedan contrastarse contra la respuesta real, no solo entre sí. Ese chequeo solo es posible en una simulación; es la razón misma de construir una.
 
+## 2.1 Impacto de Negocio e Indicadores Clave (KPIs)
+
+| Métrica | Resultado | Qué significa |
+|---|---|---|
+| Mejor estimador CATE vs. verdad conocida | Causal Forest DML, correlación 0,888 | Mayor recuperación del efecto real, aunque el DRLearner obtuvo mejor Qini (la única métrica disponible sin verdad conocida) |
+| Valor de política de targeting capturado | **97,7%** del beneficio alcanzable por el oráculo | vs. 89,7% de "priorizar camiones de mayor riesgo" y 54,8% aleatorio, a presupuesto fijo del 30% de la flota |
+| Precisión del DiD de adopción escalonada | Group-time ATT: 1,4% de error vs. efecto real | vs. 6,7% de error de efectos fijos bidireccionales naive, que subestima el efecto real por el mecanismo de sesgo Goodman-Bacon |
+| Bug real de estimador detectado y corregido | DRLearner con 19,75% de predicciones de signo incorrecto → corregido | Causa raíz: un learner de etapa final sobreajustado sobre un pseudo-resultado ruidoso; correlación con la verdad pasó de 0,38 a 0,80 |
+| Balance de aleatorización | Todas las covariables dentro de ±0,1 SMD | Confirma que la asignación de tratamiento del piloto RCT es genuinamente independiente de las características pre-tratamiento |
+
 ---
 
 # 3. Marco Teórico

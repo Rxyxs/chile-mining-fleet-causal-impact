@@ -31,6 +31,16 @@ A mining operation weighing a proactive-maintenance program for its haul-truck f
 
 Both datasets here are synthetic — no free, public dataset exists that pairs individual-level randomized maintenance assignment with a staggered site-level rollout of the same program — but each is built with a **known, deliberately non-trivial true effect** (heterogeneous by truck age/utilization in Part A; dynamic, ramping up over the months after adoption in Part B) specifically so this project's estimators can be checked against the real answer, not just against each other. That check is only possible in a simulation; it is the entire point of building one.
 
+## 2.1 Business Impact & Key Performance Indicators
+
+| Metric | Result | What it means |
+|---|---|---|
+| Best CATE estimator vs. ground truth | Causal Forest DML, 0.888 correlation | Highest true-effect recovery, even though DRLearner scored higher on Qini (the only metric available without ground truth) |
+| Targeting policy value captured | **97.7%** of the oracle-achievable benefit | vs. 89.7% for "target highest-risk trucks" and 54.8% for random, at a fixed 30% fleet budget |
+| Staggered-adoption DiD accuracy | Group-time ATT: 1.4% error vs. true effect | vs. 6.7% error from naive two-way-fixed-effects, which understates the true effect via the Goodman-Bacon bias mechanism |
+| Real estimator bug caught and fixed | DRLearner 19.75% wrong-sign predictions → fixed | Root-caused to an overfit final-stage learner on a noisy pseudo-outcome; correlation with truth went 0.38 → 0.80 |
+| Randomization balance | All covariates within ±0.1 SMD | Confirms the RCT pilot's treatment assignment is genuinely independent of pre-treatment characteristics |
+
 ---
 
 # 3. Theoretical Framework
