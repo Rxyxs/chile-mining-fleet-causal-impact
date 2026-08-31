@@ -10,7 +10,7 @@
 ![linearmodels](https://img.shields.io/badge/linearmodels-PanelOLS-337AB7?style=flat)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9-F7931E?style=flat&logo=scikitlearn&logoColor=white)
 ![Jupyter](https://img.shields.io/badge/Jupyter-2%20notebooks-F37626?style=flat&logo=jupyter&logoColor=white)
-![Pytest](https://img.shields.io/badge/tests-35%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
+![Pytest](https://img.shields.io/badge/tests-41%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
 ![Status](https://img.shields.io/badge/status-corrida%20real%20del%20pipeline-lightgrey?style=flat)
 
 Este proyecto responde dos preguntas causales distintas sobre la misma intervención — un programa de mantenimiento proactivo para una flota de camiones CAEX — según cómo se implementó:
@@ -104,7 +104,7 @@ flowchart TB
     B2 --> P
     B4 --> P
     B5 --> P
-    P --> O["outputs/figures/, outputs/reports/results.json"]
+    P --> O["outputs/figures/, outputs/reports/results.json + results.duckdb"]
 ```
 
 ## Responsabilidad de cada módulo
@@ -120,6 +120,7 @@ flowchart TB
 | [`src/evaluation/targeting_policy.py`](src/evaluation/targeting_policy.py) | Comparación de targeting bajo restricción de presupuesto: random vs. riesgo vs. uplift vs. oráculo. |
 | [`src/evaluation/did_estimators.py`](src/evaluation/did_estimators.py) | TWFE ingenuo (`linearmodels.PanelOLS`) y el estimador de ATT por grupo-tiempo / event-study hecho a mano. |
 | [`src/evaluation/sensitivity_analysis.py`](src/evaluation/sensitivity_analysis.py) | Prueba placebo de pre-tendencia, límites honestos/valor de quiebre, y el barrido de inyección de violación empírica (§3.6, §7.4). |
+| [`src/evaluation/results_db.py`](src/evaluation/results_db.py) | Persiste las tablas de comparación de §7.1-7.3 en una base de datos DuckDB local consultable (§7.5). |
 | [`src/visualization/plots.py`](src/visualization/plots.py) | Renderiza cada figura de este README desde la salida real del pipeline. |
 | [`src/pipeline.py`](src/pipeline.py) | Orquestador de punta a punta para ambas partes. |
 | [`02_Double_Robust_CATE_Analysis.ipynb`](02_Double_Robust_CATE_Analysis.ipynb) | Notebook complementario, completamente ejecutado: efecto ingenuo único para todos vs. `DoublyRobustModel` sobre datos de la Parte A, con gráficos comparativos. |
@@ -181,7 +182,7 @@ Efecto ingenuo único para todos vs. el CATE por camión de `DoublyRobustModel`,
 pytest -v
 ```
 
-35 tests: corrección de la curva uplift y el coeficiente Qini contra un ejemplo calculado a mano, el ATT por grupo-tiempo contra un efecto exacto calculado a mano sobre un panel de juguete sin ruido, chequeos de convención de signo y correlación con verdad base de los meta-learners y el DR-learner, lógica de selección de la política de targeting, chequeos de sanidad del generador de datos (plausibilidad física, balance, efecto pre-tratamiento igual a cero), y el módulo de análisis de sensibilidad (detección de placebo de pre-tendencia, valor de quiebre de límites honestos, y el barrido de inyección de violación) contra valores exactos calculados a mano sobre paneles de juguete deterministas.
+41 tests: corrección de la curva uplift y el coeficiente Qini contra un ejemplo calculado a mano, el ATT por grupo-tiempo contra un efecto exacto calculado a mano sobre un panel de juguete sin ruido, chequeos de convención de signo y correlación con verdad base de los meta-learners y el DR-learner, lógica de selección de la política de targeting, chequeos de sanidad del generador de datos (plausibilidad física, balance, efecto pre-tratamiento igual a cero), y el módulo de análisis de sensibilidad (detección de placebo de pre-tendencia, valor de quiebre de límites honestos, y el barrido de inyección de violación) contra valores exactos calculados a mano sobre paneles de juguete deterministas, y el round-trip del almacén de comparación DuckDB en `results_db.py`.
 
 ## Estructura del proyecto
 
@@ -199,15 +200,16 @@ chile-mining-fleet-causal-impact/
 │   │   ├── uplift_metrics.py
 │   │   ├── targeting_policy.py
 │   │   ├── did_estimators.py
-│   │   └── sensitivity_analysis.py
+│   │   ├── sensitivity_analysis.py
+│   │   └── results_db.py
 │   ├── visualization/
 │   │   └── plots.py
 │   └── pipeline.py
 ├── 02_Double_Robust_CATE_Analysis.ipynb    # ejecutado, salidas reales
 ├── outputs/
 │   ├── figures/     # figuras de resultado (png, versionadas)
-│   └── reports/     # results.json (generado)
-├── tests/           # 35 tests, pytest
+│   └── reports/     # results.json, results.duckdb (generado)
+├── tests/           # 41 tests, pytest
 ├── requirements.txt
 ├── README.md
 └── README.es.md
@@ -295,6 +297,27 @@ La curva de event-study muestra el efecto empezando cerca de cero en la adopció
 **Barrido de inyección empírica**: inyectar de verdad un rango de violaciones de pre-tendencia sintéticas y re-estimar muestra que la relación es exactamente lineal, tal como predice la propia aritmética del estimador — aproximadamente **−15,5h de cambio en el ATT estimado por cada 1h/mes de violación inyectada** — un cuadro directo y medido (no solo acotado) de cuánto movería una violación de un tamaño dado a la propia conclusión de este proyecto.
 
 ![Barrido de sensibilidad a la violación](outputs/figures/violation_sensitivity_sweep.png)
+
+## 7.5 Almacén de comparación consultable (DuckDB)
+
+Cada corrida de `python -m src.pipeline` también escribe `outputs/reports/results.duckdb` (`src/evaluation/results_db.py`), una base de datos DuckDB local con los mismos números de comparación de §7.1-7.3, estructurados como cuatro tablas SQL en vez de JSON anidado — útil para explorar las comparaciones de estimadores de forma ad hoc sin volver a correr el pipeline:
+
+| Tabla | Contenido |
+|---|---|
+| `part_a_cate_estimator_comparison` | coeficiente Qini + correlación con el CATE verdadero por cada meta-learner, marcando el mejor según verdad base |
+| `part_a_targeting_policy_comparison` | horas ahorradas y % del oráculo alcanzado, por política de targeting |
+| `part_b_did_estimator_comparison` | TWFE ingenuo vs. ATT por grupo-tiempo, cada uno contra el efecto verdadero y su % de error |
+| `part_b_event_study` | ATT dinámico por tiempo de evento (meses desde la adopción) |
+
+```python
+import duckdb
+con = duckdb.connect("outputs/reports/results.duckdb")
+con.execute("""
+    SELECT estimator, qini_coefficient, cate_recovery_correlation
+    FROM part_a_cate_estimator_comparison
+    ORDER BY cate_recovery_correlation DESC
+""").df()
+```
 
 ---
 

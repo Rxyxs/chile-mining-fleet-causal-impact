@@ -6,6 +6,7 @@ lightgbm>=4.3.0
 econml>=0.15.0
 linearmodels>=6.0
 statsmodels>=0.14.0
+duckdb>=1.0.0
 matplotlib>=3.8.0
 pytest>=8.0.0
 jupyter>=1.0.0

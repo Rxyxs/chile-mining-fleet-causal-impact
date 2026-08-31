@@ -10,7 +10,7 @@
 ![linearmodels](https://img.shields.io/badge/linearmodels-PanelOLS-337AB7?style=flat)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9-F7931E?style=flat&logo=scikitlearn&logoColor=white)
 ![Jupyter](https://img.shields.io/badge/Jupyter-2%20notebooks-F37626?style=flat&logo=jupyter&logoColor=white)
-![Pytest](https://img.shields.io/badge/tests-35%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
+![Pytest](https://img.shields.io/badge/tests-41%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
 ![Status](https://img.shields.io/badge/status-real%20pipeline%20run-lightgrey?style=flat)
 
 This project answers two different causal questions about the same intervention — a proactive maintenance program for a CAEX haul-truck fleet — depending on how it was rolled out:
@@ -104,7 +104,7 @@ flowchart TB
     B2 --> P
     B4 --> P
     B5 --> P
-    P --> O["outputs/figures/, outputs/reports/results.json"]
+    P --> O["outputs/figures/, outputs/reports/results.json + results.duckdb"]
 ```
 
 ## Module responsibilities
@@ -120,6 +120,7 @@ flowchart TB
 | [`src/evaluation/targeting_policy.py`](src/evaluation/targeting_policy.py) | Budget-constrained targeting comparison: random vs. risk vs. uplift vs. oracle. |
 | [`src/evaluation/did_estimators.py`](src/evaluation/did_estimators.py) | Naive TWFE (`linearmodels.PanelOLS`) and the hand-rolled group-time ATT / event-study estimator. |
 | [`src/evaluation/sensitivity_analysis.py`](src/evaluation/sensitivity_analysis.py) | Placebo pre-trend test, honest bounds/breakdown value, and the empirical violation-injection sweep (§3.6, §7.4). |
+| [`src/evaluation/results_db.py`](src/evaluation/results_db.py) | Persists the §7.1-7.3 comparison tables to a queryable local DuckDB database (§7.5). |
 | [`src/visualization/plots.py`](src/visualization/plots.py) | Renders every figure in this README from real pipeline output. |
 | [`src/pipeline.py`](src/pipeline.py) | End-to-end orchestrator for both parts. |
 | [`02_Double_Robust_CATE_Analysis.ipynb`](02_Double_Robust_CATE_Analysis.ipynb) | Companion, fully-executed notebook: naive one-size-fits-all effect vs. `DoublyRobustModel` on Part A data, with comparative plots. |
@@ -181,7 +182,7 @@ Naive one-size-fits-all effect vs. `DoublyRobustModel`'s per-truck CATE, on the 
 pytest -v
 ```
 
-35 tests: feature-level correctness of the uplift curve and Qini coefficient against a hand-computed example, the group-time ATT against an exact hand-computed effect on a noise-free toy panel, meta-learner and DR-learner sign-convention/ground-truth-correlation checks, targeting-policy selection logic, DGP sanity checks (physical plausibility, balance, zero pre-treatment effect), and the sensitivity-analysis module (placebo pre-trend detection, honest-bounds breakdown value, and the violation-injection sweep) against hand-computed exact values on deterministic toy panels.
+41 tests: feature-level correctness of the uplift curve and Qini coefficient against a hand-computed example, the group-time ATT against an exact hand-computed effect on a noise-free toy panel, meta-learner and DR-learner sign-convention/ground-truth-correlation checks, targeting-policy selection logic, DGP sanity checks (physical plausibility, balance, zero pre-treatment effect), and the sensitivity-analysis module (placebo pre-trend detection, honest-bounds breakdown value, and the violation-injection sweep) against hand-computed exact values on deterministic toy panels, and the DuckDB comparison-store round-trip in `results_db.py`.
 
 ## Project structure
 
@@ -199,15 +200,16 @@ chile-mining-fleet-causal-impact/
 │   │   ├── uplift_metrics.py
 │   │   ├── targeting_policy.py
 │   │   ├── did_estimators.py
-│   │   └── sensitivity_analysis.py
+│   │   ├── sensitivity_analysis.py
+│   │   └── results_db.py
 │   ├── visualization/
 │   │   └── plots.py
 │   └── pipeline.py
 ├── 02_Double_Robust_CATE_Analysis.ipynb    # executed, real outputs
 ├── outputs/
 │   ├── figures/     # result figures (png, version-controlled)
-│   └── reports/     # results.json (generated)
-├── tests/           # 35 tests, pytest
+│   └── reports/     # results.json, results.duckdb (generated)
+├── tests/           # 41 tests, pytest
 ├── requirements.txt
 ├── README.md
 └── README.es.md
@@ -295,6 +297,27 @@ The naive constant-effect regression understates the true effect's magnitude —
 ![Violation sensitivity sweep](outputs/figures/violation_sensitivity_sweep.png)
 
 The event-study curve shows the effect starting near zero at adoption and growing toward the plateau over the following months, with visibly increasing noise at later event-times — an honest, structural feature of a staggered design: only the earliest-adopting cohort has data that far past its own adoption date, so later event-time points are estimated from far fewer sites, not from a worse method.
+
+## 7.5 Queryable comparison store (DuckDB)
+
+Every run of `python -m src.pipeline` also writes `outputs/reports/results.duckdb` (`src/evaluation/results_db.py`), a local DuckDB database with the same comparison numbers as §7.1-7.3, structured as four SQL tables instead of nested JSON — useful for slicing the estimator comparisons ad hoc without re-running the pipeline:
+
+| Table | Contents |
+|---|---|
+| `part_a_cate_estimator_comparison` | Qini coefficient + true-CATE correlation per CATE learner, flagged by best-on-ground-truth |
+| `part_a_targeting_policy_comparison` | hours saved and % of oracle achieved, per targeting policy |
+| `part_b_did_estimator_comparison` | naive TWFE vs. group-time ATT, each vs. the true effect and its % error |
+| `part_b_event_study` | dynamic ATT by event time (months since adoption) |
+
+```python
+import duckdb
+con = duckdb.connect("outputs/reports/results.duckdb")
+con.execute("""
+    SELECT estimator, qini_coefficient, cate_recovery_correlation
+    FROM part_a_cate_estimator_comparison
+    ORDER BY cate_recovery_correlation DESC
+""").df()
+```
 
 ---
 

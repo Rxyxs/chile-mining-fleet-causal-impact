@@ -22,6 +22,7 @@ from src.evaluation.sensitivity_analysis import (
     run_violation_sensitivity_sweep,
     summarize_pretrend_test,
 )
+from src.evaluation.results_db import persist_results_to_duckdb
 from src.evaluation.targeting_policy import evaluate_targeting_policies
 from src.evaluation.uplift_metrics import cate_calibration_bins, cate_recovery_correlation, qini_coefficient, uplift_curve
 from src.models.causal_forest import CausalForestModel
@@ -189,7 +190,8 @@ def main() -> None:
 
     all_results = {"part_a_rct_uplift": part_a_results, "part_b_staggered_did": part_b_results}
     (REPORTS_DIR / "results.json").write_text(json.dumps(all_results, indent=2, default=str), encoding="utf-8")
-    print(f"\nSaved figures to {FIGURES_DIR}/ and metrics to {REPORTS_DIR / 'results.json'}")
+    db_path = persist_results_to_duckdb(all_results, REPORTS_DIR / "results.duckdb")
+    print(f"\nSaved figures to {FIGURES_DIR}/, metrics to {REPORTS_DIR / 'results.json'}, and comparison tables to {db_path}")
 
 
 if __name__ == "__main__":
