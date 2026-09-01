@@ -32,6 +32,7 @@ from src.visualization.plots import (
     plot_cate_calibration,
     plot_covariate_balance,
     plot_event_study,
+    plot_event_study_animated,
     plot_honest_bounds,
     plot_qini_curves,
     plot_targeting_policy_comparison,
@@ -129,6 +130,7 @@ def run_part_b(panel_df: pd.DataFrame) -> dict:
     overall_corrected_att = overall_att(group_time)
 
     plot_event_study(event_study, naive["att"], FIGURES_DIR / "event_study.png")
+    plot_event_study_animated(event_study, naive["att"], FIGURES_DIR / "event_study_animated.gif")
 
     true_att = float(panel_df.loc[panel_df["treated"] == 1, "true_effect_hours"].mean())
 

@@ -280,6 +280,9 @@ Targeting by predicted uplift captures 97.7% of the achievable benefit at this b
 
 The naive constant-effect regression understates the true effect's magnitude — consistent with the Goodman-Bacon mechanism (§3.4): some of its implicit 2x2 comparisons use already-treated, still-improving sites as controls for later adopters, netting out part of a real, still-growing effect. The group-time estimator, which never makes that comparison, lands within 1.4% of the truth.
 
+The animation below traces the same group-time ATT series month by month, making the dynamic effect's build-up (and its gap from the naive TWFE line) easier to follow than a static snapshot.
+
+![Event study animated](outputs/figures/event_study_animated.gif)
 ![Event study](outputs/figures/event_study.png)
 
 ## 7.4 Sensitivity analysis: how fragile is the group-time ATT?

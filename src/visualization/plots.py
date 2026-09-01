@@ -143,3 +143,49 @@ def plot_event_study(event_study: pd.DataFrame, naive_att: float, out_path) -> N
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
+
+
+def plot_event_study_animated(event_study: pd.DataFrame, naive_att: float, out_path) -> None:
+    """Racing-line animated GIF of the same event-study series plotted by
+    `plot_event_study` above -- same real data, no fabricated values. Line
+    progressively draws across event time, with a floating label at the
+    advancing tip showing the current estimated hours saved."""
+    import matplotlib.animation as animation
+
+    ordered = event_study.sort_values("event_time").reset_index(drop=True)
+    x = ordered["event_time"].to_numpy()
+    y = (-ordered["mean_att"]).to_numpy()
+    n_points = len(x)
+    n_frames = max(2, min(60, n_points))
+    # Subsample real, already-computed points if there are more than we want frames.
+    frame_idx = np.unique(np.linspace(0, n_points - 1, n_frames).astype(int))
+
+    with plt.style.context("dark_background"):
+        fig, ax = plt.subplots(figsize=(12, 6))
+        ax.set_xlim(x.min() - 0.5, x.max() + 0.5)
+        pad = (y.max() - y.min()) * 0.15 + 1e-6
+        ax.set_ylim(min(y.min(), -naive_att) - pad, max(y.max(), -naive_att) + pad)
+        ax.axhline(-naive_att, color="#C44E52", linestyle="--", linewidth=1.5, label="Naive TWFE (single constant effect)")
+        ax.axvline(0, color="gray", linestyle=":", linewidth=0.8)
+        ax.set_xlabel("Months since adoption (event time)")
+        ax.set_ylabel("Estimated hours saved")
+        ax.set_title("Event-study: dynamic treatment effect vs. naive TWFE")
+        ax.legend(loc="upper left")
+
+        (line,) = ax.plot([], [], marker="o", color="#7FA6E8", linewidth=2, label="Group-time ATT")
+        label = ax.annotate(
+            "", xy=(x[0], y[0]), xytext=(15, 15), textcoords="offset points",
+            fontsize=10, color="white",
+            bbox=dict(boxstyle="round,pad=0.35", fc="#4C72B0", ec="white", alpha=0.9),
+        )
+
+        def update(frame_num):
+            i = frame_idx[frame_num]
+            line.set_data(x[: i + 1], y[: i + 1])
+            label.xy = (x[i], y[i])
+            label.set_text(f"Group-time ATT: {y[i]:.2f} hrs\n(event time = {x[i]:.0f})")
+            return line, label
+
+        ani = animation.FuncAnimation(fig, update, frames=len(frame_idx), interval=200, blit=False)
+        ani.save(out_path, writer="pillow")
+        plt.close(fig)

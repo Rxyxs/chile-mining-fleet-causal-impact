@@ -280,6 +280,9 @@ Dirigir por uplift predicho captura el 97,7% del beneficio alcanzable a este pre
 
 La regresión ingenua de efecto constante subestima la magnitud del efecto real — consistente con el mecanismo de Goodman-Bacon (§3.4): algunas de sus comparaciones 2x2 implícitas usan sitios ya tratados y aún mejorando como controles para adoptantes más tardíos, restando parte de un efecto real que todavía no había terminado de crecer. El estimador por grupo-tiempo, que nunca hace esa comparación, queda a 1,4% de la verdad.
 
+La animación siguiente traza la misma serie de ATT grupo-tiempo mes a mes, facilitando ver la evolución del efecto dinámico (y su brecha respecto a la línea TWFE ingenua) mejor que una imagen estática.
+
+![Event study animado](outputs/figures/event_study_animated.gif)
 ![Event study](outputs/figures/event_study.png)
 
 La curva de event-study muestra el efecto empezando cerca de cero en la adopción y creciendo hacia la meseta en los meses siguientes, con ruido visiblemente creciente en los tiempos-evento más tardíos — una característica honesta y estructural de un diseño escalonado: solo la cohorte que adopta más temprano tiene datos tan lejos de su propia fecha de adopción, así que los puntos de tiempo-evento más tardíos se estiman con muchos menos sitios, no con un método peor.

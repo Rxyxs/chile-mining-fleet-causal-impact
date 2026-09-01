@@ -14,3 +14,4 @@ data/raw/*.csv
 outputs/reports/*
 !outputs/reports/.gitkeep
 !outputs/figures/*.png
+!outputs/figures/*.gif
