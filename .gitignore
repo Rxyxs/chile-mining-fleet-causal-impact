@@ -5,8 +5,6 @@ __pycache__/
 .ipynb_checkpoints/
 .env
 .DS_Store
-CLAUDE.md
-.claude/
 
 # Datos sinteticos (se regeneran con `python -m src.pipeline`)
 data/raw/*.csv
