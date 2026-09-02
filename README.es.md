@@ -121,7 +121,8 @@ flowchart TB
 | [`src/evaluation/did_estimators.py`](src/evaluation/did_estimators.py) | TWFE ingenuo (`linearmodels.PanelOLS`) y el estimador de ATT por grupo-tiempo / event-study hecho a mano. |
 | [`src/evaluation/sensitivity_analysis.py`](src/evaluation/sensitivity_analysis.py) | Prueba placebo de pre-tendencia, límites honestos/valor de quiebre, y el barrido de inyección de violación empírica (§3.6, §7.4). |
 | [`src/evaluation/results_db.py`](src/evaluation/results_db.py) | Persiste las tablas de comparación de §7.1-7.3 en una base de datos DuckDB local consultable (§7.5). |
-| [`src/visualization/plots.py`](src/visualization/plots.py) | Renderiza cada figura de este README desde la salida real del pipeline. |
+| [`src/visualization/plots.py`](src/visualization/plots.py) | Renderiza cada figura estática de este README desde la salida real del pipeline. |
+| [`src/visualization/interactive_plots.py`](src/visualization/interactive_plots.py) | Renderiza el gráfico interactivo Plotly de CATE predicho vs. real (§7.1) desde el mismo ajuste semilla-42 de la Parte A. |
 | [`src/pipeline.py`](src/pipeline.py) | Orquestador de punta a punta para ambas partes. |
 | [`02_Double_Robust_CATE_Analysis.ipynb`](02_Double_Robust_CATE_Analysis.ipynb) | Notebook complementario, completamente ejecutado: efecto ingenuo único para todos vs. `DoublyRobustModel` sobre datos de la Parte A, con gráficos comparativos. |
 
@@ -158,6 +159,14 @@ python -m src.pipeline
 ```
 
 Simula ambos datasets, ajusta los 5 estimadores de CATE, corre ambos estimadores de DiD más el análisis de sensibilidad, y escribe cada figura y número de la §7 de abajo en `outputs/`.
+
+## Gráfico interactivo (opcional)
+
+```powershell
+python -m src.visualization.interactive_plots
+```
+
+Reajusta los 5 estimadores de la Parte A sobre el mismo split semilla-42 y escribe el HTML interactivo autocontenido de la §7.1 en `outputs/interactive/cate_estimator_comparison.html`. No forma parte de la corrida principal del pipeline de arriba (que solo genera matplotlib/PNG), ya que duplica el ajuste de la Parte A en vez de reusar un modelo ya ajustado en memoria.
 
 ## Etapas individuales (para debugging)
 
@@ -203,12 +212,14 @@ chile-mining-fleet-causal-impact/
 │   │   ├── sensitivity_analysis.py
 │   │   └── results_db.py
 │   ├── visualization/
-│   │   └── plots.py
+│   │   ├── plots.py
+│   │   └── interactive_plots.py
 │   └── pipeline.py
 ├── 02_Double_Robust_CATE_Analysis.ipynb    # ejecutado, salidas reales
 ├── outputs/
-│   ├── figures/     # figuras de resultado (png, versionadas)
-│   └── reports/     # results.json, results.duckdb (generado)
+│   ├── figures/       # figuras de resultado (png/gif, versionadas)
+│   ├── interactive/   # HTML interactivo Plotly (versionado)
+│   └── reports/       # results.json, results.duckdb (generado)
 ├── tests/           # 41 tests, pytest
 ├── requirements.txt
 ├── README.md
@@ -254,6 +265,8 @@ Cada número y figura de abajo viene de una corrida real de `python -m src.pipel
 
 ![Curvas Qini](outputs/figures/qini_curves.png)
 ![Calibración de CATE](outputs/figures/cate_calibration.png)
+
+**Interactivo**: [CATE predicho vs. real, los 5 estimadores, mismo set de test](https://htmlpreview.github.io/?https://github.com/Rxyxs/chile-mining-fleet-causal-impact/blob/main/outputs/interactive/cate_estimator_comparison.html) — hacé clic en un ítem de la leyenda para activar/desactivar un estimador y pasá el mouse sobre cualquier punto para ver su valor exacto predicho/real en horas; Causal Forest DML se muestra por defecto por tener la mayor correlación de recuperación contra la verdad base. Generado por [`src/visualization/interactive_plots.py`](src/visualization/interactive_plots.py), que reajusta los mismos 5 estimadores sobre el mismo split semilla-42 usado en todo este README — no es una corrida separada ni ilustrativa.
 
 ## 7.2 Comparación de políticas de targeting (presupuesto del 30% de la flota, 360 camiones)
 

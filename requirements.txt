@@ -13,3 +13,4 @@ jupyter>=1.0.0
 nbconvert>=7.16.0
 ipykernel>=6.29.0
 matplotlib_inline>=0.1.6
+plotly>=5.20.0
