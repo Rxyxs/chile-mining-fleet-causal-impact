@@ -36,8 +36,12 @@ class CausalForestModel:
         # LightGBM then tries to read the literal strings as floats. One-hot
         # encoding here, with the column set fixed at fit time and reindexed
         # (zero-filled) at predict time, keeps train/predict consistent even
-        # if a category is missing from a given batch.
-        encoded = pd.get_dummies(X, columns=["site", "load_class"], drop_first=True)
+        # if a category is missing from a given batch. Categorical columns are
+        # detected by dtype rather than hardcoded, so the same wrapper runs on
+        # the synthetic fleet (site, load_class) and on real-data covariate
+        # sets with different (or no) categorical columns.
+        categorical = X.select_dtypes(include=["category", "object"]).columns.tolist()
+        encoded = pd.get_dummies(X, columns=categorical, drop_first=True)
         if fit_columns:
             self._encoded_columns = encoded.columns
         else:

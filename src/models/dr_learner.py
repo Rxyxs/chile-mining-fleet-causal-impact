@@ -37,11 +37,14 @@ class DoublyRobustModel:
     LightGBM; only the final CATE-mapping stage is linear.
     """
 
-    def __init__(self, random_state: int = 42):
+    def __init__(self, random_state: int = 42, model_final=None):
+        # `model_final` is overridable only so the real-data ablation
+        # (`src/pipeline_dr_ablation.py`) can swap the final stage while
+        # keeping every nuisance model identical; the default is unchanged.
         self.model = DRLearner(
             model_propensity=LGBMClassifier(n_estimators=200, learning_rate=0.05, max_depth=5, num_leaves=31, random_state=random_state, verbosity=-1),
             model_regression=LGBMRegressor(n_estimators=200, learning_rate=0.05, max_depth=5, num_leaves=31, random_state=random_state, verbosity=-1),
-            model_final=StatsModelsLinearRegression(),
+            model_final=model_final if model_final is not None else StatsModelsLinearRegression(),
             cv=3,
             min_propensity=0.1,
             random_state=random_state,
@@ -53,7 +56,8 @@ class DoublyRobustModel:
         # nuisance models receive X as a raw numpy array with no dtype
         # metadata, so pandas `category` columns must be one-hot encoded
         # first, with the column set fixed at fit time.
-        encoded = pd.get_dummies(X, columns=["site", "load_class"], drop_first=True)
+        categorical = X.select_dtypes(include=["category", "object"]).columns.tolist()
+        encoded = pd.get_dummies(X, columns=categorical, drop_first=True)
         if fit_columns:
             self._encoded_columns = encoded.columns
         else:

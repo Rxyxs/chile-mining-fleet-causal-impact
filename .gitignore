@@ -6,13 +6,17 @@ __pycache__/
 .env
 .DS_Store
 
-# Datos sinteticos (se regeneran con `python -m src.pipeline`)
+# Datos sinteticos (se regeneran con `python -m src.pipeline`) y datos reales
+# de UCI (se descargan con `python -m src.data.download_real_data`)
 data/raw/*.csv
+data/raw/*.zip
+data/raw/*.txt
 !data/raw/.gitkeep
 
 # Artefactos del pipeline que se regeneran (las figuras SI quedan versionadas)
 outputs/reports/*
 !outputs/reports/.gitkeep
+!outputs/reports/semi_synthetic_results.md
 !outputs/figures/*.png
 !outputs/figures/*.gif
 
