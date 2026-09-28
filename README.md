@@ -35,11 +35,12 @@ Both datasets here are synthetic — no free, public dataset exists that pairs i
 
 | Metric | Result | What it means |
 |---|---|---|
-| Best CATE estimator vs. ground truth | Causal Forest DML, 0.888 correlation | Highest true-effect recovery, even though DRLearner scored higher on Qini (the only metric available without ground truth) |
+| Best CATE estimator vs. ground truth | Causal Forest DML, 0.888 correlation (seed 42, single split) | Highest true-effect recovery, even though DRLearner scored higher on Qini (the only metric available without ground truth). Across 20 seeds the means are 0.813 (Causal Forest) vs. 0.718 (DRLearner), so the single split sits on the optimistic side (§7.6) |
 | Targeting policy value captured | **97.7%** of the oracle-achievable benefit | vs. 89.7% for "target highest-risk trucks" and 54.8% for random, at a fixed 30% fleet budget |
 | Staggered-adoption DiD accuracy | Group-time ATT: 1.4% error vs. true effect | vs. 6.7% error from naive two-way-fixed-effects, which understates the true effect via the Goodman-Bacon bias mechanism |
 | Real estimator bug caught and fixed | DRLearner 19.75% wrong-sign predictions → fixed | Root-caused to an overfit final-stage learner on a noisy pseudo-outcome; correlation with truth went 0.38 → 0.80 |
 | Randomization balance | All covariates within ±0.1 SMD | Confirms the RCT pilot's treatment assignment is genuinely independent of pre-treatment characteristics |
+| Real-sensor stress test (Scania APS, 20 seeds) | Default DRLearner collapses (r = −0.01); skew-aware Ridge final stage recovers it to 0.61–0.79 | On heavy-tailed, collinear real sensor covariates, Causal Forest still leads on CATE recovery (+0.065 to +0.094, 95% CI excludes 0), but its edge on targeting value is not significant (§7.6) |
 
 ---
 
@@ -124,6 +125,12 @@ flowchart TB
 | [`src/visualization/plots.py`](src/visualization/plots.py) | Renders every static figure in this README from real pipeline output. |
 | [`src/visualization/interactive_plots.py`](src/visualization/interactive_plots.py) | Renders the interactive predicted-vs-true-CATE Plotly chart (§7.1) from the same seed-42 Part A fit. |
 | [`src/pipeline.py`](src/pipeline.py) | End-to-end orchestrator for both parts. |
+| [`src/data/download_real_data.py`](src/data/download_real_data.py) | Downloads the Scania APS and AI4I 2020 datasets from UCI into `data/raw/` (§7.6). |
+| [`src/data/semi_synthetic_dgp.py`](src/data/semi_synthetic_dgp.py) | Semi-synthetic pilot on real covariates: block-randomized treatment and a known heterogeneous effect driven by real wear/stress columns, with the dataset's real failures optionally entering Y0. |
+| [`src/pipeline_real_data.py`](src/pipeline_real_data.py) | Semi-synthetic benchmark: the 5 Part A estimators over 5 conditions x 20 seeds, with scale-free recovery, Qini and targeting metrics. |
+| [`src/pipeline_dr_ablation.py`](src/pipeline_dr_ablation.py) | DRLearner final-stage ablation (OLS / log / Ridge / skew-aware Ridge / LightGBM) that isolates why it collapses on Scania. |
+| [`src/evaluation/semi_synthetic_diagnostics.py`](src/evaluation/semi_synthetic_diagnostics.py) | Ground-truth difficulty per dataset: share of CATE variance from real failures, attainable-correlation ceiling, skew, missingness, collinearity. |
+| [`src/visualization/semi_synthetic_plots.py`](src/visualization/semi_synthetic_plots.py) | Per-condition Qini curves and per-seed metric distributions for the semi-synthetic benchmark. |
 | [`02_Double_Robust_CATE_Analysis.ipynb`](02_Double_Robust_CATE_Analysis.ipynb) | Companion, fully-executed notebook: naive one-size-fits-all effect vs. `DoublyRobustModel` on Part A data, with comparative plots. |
 
 ---
@@ -133,7 +140,7 @@ flowchart TB
 - **No leakage from ground truth into any estimator.** `true_cate_hours` (Part A) and `true_effect_hours` (Part B) are used exclusively for evaluation and are never available as a feature to any model — they exist only because this is a simulation.
 - **Part A evaluation is entirely out-of-sample.** All 5 CATE estimators are fit on a 1,800-truck training split and evaluated (Qini, recovery correlation, calibration, targeting) on a held-out 1,200-truck test split they never saw.
 - **Model selection for the targeting decision uses ground-truth recovery correlation, not the single-split Qini score.** §7.1 reports both, and they disagree here — the model selected for the calibration plot and the targeting-policy comparison is the one that best recovers the true CATE, which is only checkable because the data is synthetic. In a real deployment without ground truth, cross-validated Qini across multiple splits (not a single split, which is noisy) would be the practical substitute; this is flagged as a limitation, not smoothed over.
-- **The `DRLearner`'s final stage is a plain linear regression, not LightGBM.** A first version used a flexible LightGBM final stage (matching `CausalForestModel`'s flexibility) and `min_propensity=0.05`; it was empirically unstable (19.75% of test-set predictions had the wrong sign, predicted range −75h to +185h against a true range of 0.5h-39h). Switching the final stage to EconML's own documented default (linear) and raising `min_propensity` to 0.1 fixed it — correlation with the true CATE went from 0.38 to 0.80. This is reported as a real, measured finding (§7.1), not a tuning detail swept under the rug.
+- **The `DRLearner`'s final stage is a plain linear regression, not LightGBM.** A first version used a flexible LightGBM final stage (matching `CausalForestModel`'s flexibility) and `min_propensity=0.05`; it was empirically unstable (19.75% of test-set predictions had the wrong sign, predicted range −75h to +185h against a true range of 0.5h-39h). Switching the final stage to EconML's own documented default (linear) and raising `min_propensity` to 0.1 fixed it — correlation with the true CATE went from 0.38 to 0.80. This is reported as a real, measured finding (§7.1), not a tuning detail swept under the rug. That fix was validated only on well-behaved synthetic features: on real, heavy-tailed Scania sensor covariates the same OLS final stage collapses, and a Ridge final stage with log1p on the skewed columns is needed instead (§7.6).
 - **The group-time ATT estimator uses only never-treated sites as the control group** (not the "not-yet-treated" variant Callaway & Sant'Anna also allow), and averages the last 3 pre-adoption months into each cohort's baseline (rather than a single month) to reduce variance — both are disclosed, deliberate simplifications, not the full published estimator.
 - **The sensitivity analysis's "honest bounds" are a simplified, hand-rolled version of Rambachan & Roth (2023)**, not the published `HonestDiD` package — the "relative magnitudes" idea (bound the plausible violation by a multiple of the largest observed pre-trend deviation) is implemented directly; more elaborate restriction classes (smoothness, sign) from the same paper are not.
 - **Randomization balance is checked directly, not assumed.** §7.1 reports the standardized mean difference for every covariate in the pilot.
@@ -200,7 +207,9 @@ chile-mining-fleet-causal-impact/
 ├── src/
 │   ├── data/
 │   │   ├── simulate_rct.py
-│   │   └── simulate_staggered_did.py
+│   │   ├── simulate_staggered_did.py
+│   │   ├── download_real_data.py
+│   │   └── semi_synthetic_dgp.py
 │   ├── models/
 │   │   ├── meta_learners.py
 │   │   ├── causal_forest.py
@@ -210,16 +219,22 @@ chile-mining-fleet-causal-impact/
 │   │   ├── targeting_policy.py
 │   │   ├── did_estimators.py
 │   │   ├── sensitivity_analysis.py
-│   │   └── results_db.py
+│   │   ├── results_db.py
+│   │   └── semi_synthetic_diagnostics.py
 │   ├── visualization/
 │   │   ├── plots.py
-│   │   └── interactive_plots.py
-│   └── pipeline.py
+│   │   ├── interactive_plots.py
+│   │   └── semi_synthetic_plots.py
+│   ├── pipeline.py
+│   ├── pipeline_real_data.py      # semi-synthetic benchmark (§7.6)
+│   └── pipeline_dr_ablation.py    # DRLearner final-stage ablation (§7.6)
 ├── 02_Double_Robust_CATE_Analysis.ipynb    # executed, real outputs
+├── data/raw/          # simulated and downloaded UCI data (generated, git-ignored)
 ├── outputs/
 │   ├── figures/       # result figures (png/gif, version-controlled)
-│   ├── interactive/   # interactive Plotly HTML (version-controlled)
-│   └── reports/       # results.json, results.duckdb (generated)
+│   ├── interactive/   # interactive Plotly HTML (generated, git-ignored)
+│   └── reports/       # results.json, results.duckdb, semi-synthetic CSVs (generated);
+│                      # semi_synthetic_results.md (version-controlled)
 ├── tests/           # 48 tests, pytest
 ├── requirements.txt
 ├── README.md
@@ -378,6 +393,7 @@ python -m src.pipeline_dr_ablation       # DRLearner final-stage ablation
 - **Uplift-based targeting delivered a real, quantified improvement over a risk-based heuristic** (97.7% vs. 89.7% of the achievable benefit at a fixed budget, §7.2) — the concrete business case for building a CATE model at all, rather than defaulting to "target whoever looks riskiest."
 - **The naive TWFE regression's bias under staggered adoption is not a textbook abstraction here** — it produced an estimate 6.7% off the true effect, on this project's own simulated data, for the specific mechanism (already-treated units as invalid controls under a dynamic effect) the recent DiD literature describes, and the corrected estimator's 1.4% error is the direct, measured payoff of accounting for it.
 - **Doubly robust estimation closed most of the Qini-vs-ground-truth gap, but not all of it, and building it exposed a real finite-sample failure mode** (§7.1): a flexible final stage turned a theoretically-sound estimator into one with 19.75% wrong-sign predictions, fixed only by switching to the simpler final stage the method's own authors recommend — a concrete reminder that "doubly robust" is a large-sample consistency guarantee, not a finite-sample stability guarantee.
+- **The DRLearner fix did not transfer to real sensor data, and the benchmark said so** (§7.6): on heavy-tailed, collinear Scania covariates the OLS final stage collapsed to a −0.01 correlation with the true CATE. An ablation showed neither a log transform nor Ridge alone was enough; together, with log1p only on the skewed columns, they recovered it to 0.61–0.79 without hurting any other condition. Causal Forest still led on CATE recovery there, but not significantly on the targeting decision, and it lost to the Ridge DRLearner on AI4I, so "most robust" is the claim the data supports, not "best everywhere."
 - **The group-time ATT's conclusion is not maximally fragile, but it is not bulletproof either** (§7.4): a breakdown value of 0.70 (relative to the noisiest single placebo estimate) sounds alarming in isolation, but the placebo test's near-zero *mean* across 48 estimates shows there's no systematic violation driving it — the honest-bounds exercise is valuable precisely because it surfaces that distinction instead of reporting only a point estimate and a p-value.
 
 ## Future work

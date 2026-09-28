@@ -35,11 +35,12 @@ Ambos datasets acá son sintéticos — no existe un dataset público y gratuito
 
 | Métrica | Resultado | Qué significa |
 |---|---|---|
-| Mejor estimador CATE vs. verdad conocida | Causal Forest DML, correlación 0,888 | Mayor recuperación del efecto real, aunque el DRLearner obtuvo mejor Qini (la única métrica disponible sin verdad conocida) |
+| Mejor estimador CATE vs. verdad conocida | Causal Forest DML, correlación 0,888 (semilla 42, un solo split) | Mayor recuperación del efecto real, aunque el DRLearner obtuvo mejor Qini (la única métrica disponible sin verdad conocida). En 20 semillas las medias son 0,813 (Causal Forest) y 0,718 (DRLearner), así que el split único queda del lado optimista (§7.6) |
 | Valor de política de targeting capturado | **97,7%** del beneficio alcanzable por el oráculo | vs. 89,7% de "priorizar camiones de mayor riesgo" y 54,8% aleatorio, a presupuesto fijo del 30% de la flota |
 | Precisión del DiD de adopción escalonada | Group-time ATT: 1,4% de error vs. efecto real | vs. 6,7% de error de efectos fijos bidireccionales naive, que subestima el efecto real por el mecanismo de sesgo Goodman-Bacon |
 | Bug real de estimador detectado y corregido | DRLearner con 19,75% de predicciones de signo incorrecto → corregido | Causa raíz: un learner de etapa final sobreajustado sobre un pseudo-resultado ruidoso; correlación con la verdad pasó de 0,38 a 0,80 |
 | Balance de aleatorización | Todas las covariables dentro de ±0,1 SMD | Confirma que la asignación de tratamiento del piloto RCT es genuinamente independiente de las características pre-tratamiento |
+| Prueba de estrés con sensores reales (Scania APS, 20 semillas) | El DRLearner por defecto colapsa (r = −0,01); una etapa final Ridge con log selectivo lo recupera a 0,61–0,79 | Con covariables reales de sensores, de cola pesada y colineales, Causal Forest sigue liderando en recuperación del CATE (+0,065 a +0,094, IC 95% sin el 0), pero su ventaja en valor de focalización no es significativa (§7.6) |
 
 ---
 
@@ -124,6 +125,12 @@ flowchart TB
 | [`src/visualization/plots.py`](src/visualization/plots.py) | Renderiza cada figura estática de este README desde la salida real del pipeline. |
 | [`src/visualization/interactive_plots.py`](src/visualization/interactive_plots.py) | Renderiza el gráfico interactivo Plotly de CATE predicho vs. real (§7.1) desde el mismo ajuste semilla-42 de la Parte A. |
 | [`src/pipeline.py`](src/pipeline.py) | Orquestador de punta a punta para ambas partes. |
+| [`src/data/download_real_data.py`](src/data/download_real_data.py) | Descarga los datasets Scania APS y AI4I 2020 desde UCI a `data/raw/` (§7.6). |
+| [`src/data/semi_synthetic_dgp.py`](src/data/semi_synthetic_dgp.py) | Piloto semi-sintético sobre covariables reales: tratamiento aleatorizado por bloques y un efecto heterogéneo conocido que depende de columnas reales de desgaste y estrés; opcionalmente, las fallas reales del dataset entran en Y0. |
+| [`src/pipeline_real_data.py`](src/pipeline_real_data.py) | Benchmark semi-sintético: los 5 estimadores de la Parte A en 5 condiciones x 20 semillas, con métricas de recuperación, Qini y focalización independientes de la escala. |
+| [`src/pipeline_dr_ablation.py`](src/pipeline_dr_ablation.py) | Ablación de la etapa final del DRLearner (OLS / log / Ridge / Ridge con log selectivo / LightGBM) que aísla por qué colapsa en Scania. |
+| [`src/evaluation/semi_synthetic_diagnostics.py`](src/evaluation/semi_synthetic_diagnostics.py) | Dificultad de la verdad base por dataset: fracción de la varianza del CATE que viene de fallas reales, techo de correlación alcanzable, asimetría, faltantes y colinealidad. |
+| [`src/visualization/semi_synthetic_plots.py`](src/visualization/semi_synthetic_plots.py) | Curvas Qini por condición y distribución de métricas por semilla del benchmark semi-sintético. |
 | [`02_Double_Robust_CATE_Analysis.ipynb`](02_Double_Robust_CATE_Analysis.ipynb) | Notebook complementario, completamente ejecutado: efecto ingenuo único para todos vs. `DoublyRobustModel` sobre datos de la Parte A, con gráficos comparativos. |
 
 ---
@@ -133,7 +140,7 @@ flowchart TB
 - **Ninguna fuga de la verdad base hacia ningún estimador.** `true_cate_hours` (Parte A) y `true_effect_hours` (Parte B) se usan exclusivamente para evaluación y nunca están disponibles como feature para ningún modelo — existen solo porque esto es una simulación.
 - **La evaluación de la Parte A es enteramente fuera de muestra.** Los 5 estimadores de CATE se ajustan sobre un split de entrenamiento de 1.800 camiones y se evalúan (Qini, correlación de recuperación, calibración, targeting) sobre un split de test de 1.200 camiones que nunca vieron.
 - **La selección de modelo para la decisión de targeting usa la correlación de recuperación contra la verdad base, no el score Qini de un solo split.** La §7.1 reporta ambos, y acá difieren — el modelo elegido para el gráfico de calibración y la comparación de políticas de targeting es el que mejor recupera el CATE real, algo solo verificable porque los datos son sintéticos. En un despliegue real sin verdad base, un Qini validado cruzadamente sobre varios splits (no un solo split, que es ruidoso) sería el sustituto práctico; esto se señala como una limitación, no se disimula.
-- **La etapa final del `DRLearner` es una regresión lineal simple, no LightGBM.** Una primera versión usó una etapa final flexible de LightGBM (igualando la flexibilidad de `CausalForestModel`) y `min_propensity=0.05`; resultó empíricamente inestable (19,75% de las predicciones en test tenían el signo equivocado, rango predicho de −75h a +185h contra un rango real de 0,5h-39h). Cambiar la etapa final al default documentado por EconML (lineal) y subir `min_propensity` a 0,1 lo corrigió — la correlación con el CATE real pasó de 0,38 a 0,80. Esto se reporta como un hallazgo real y medido (§7.1), no un detalle de tuning escondido.
+- **La etapa final del `DRLearner` es una regresión lineal simple, no LightGBM.** Una primera versión usó una etapa final flexible de LightGBM (igualando la flexibilidad de `CausalForestModel`) y `min_propensity=0.05`; resultó empíricamente inestable (19,75% de las predicciones en test tenían el signo equivocado, rango predicho de −75h a +185h contra un rango real de 0,5h-39h). Cambiar la etapa final al default documentado por EconML (lineal) y subir `min_propensity` a 0,1 lo corrigió — la correlación con el CATE real pasó de 0,38 a 0,80. Esto se reporta como un hallazgo real y medido (§7.1), no un detalle de tuning escondido. Esa corrección se validó solo sobre features sintéticas bien comportadas: con las covariables reales de sensores de Scania, de cola pesada, la misma etapa final OLS colapsa, y hace falta en su lugar una etapa final Ridge con log1p sobre las columnas asimétricas (§7.6).
 - **El estimador de ATT por grupo-tiempo usa solo sitios nunca-tratados como grupo control** (no la variante "aún-no-tratados" que Callaway & Sant'Anna también permiten), y promedia los últimos 3 meses pre-adopción en la línea base de cada cohorte (en vez de un solo mes) para reducir varianza — ambas son simplificaciones deliberadas y declaradas, no el estimador publicado completo.
 - **Los "límites honestos" del análisis de sensibilidad son una versión simplificada y hecha a mano de Rambachan & Roth (2023)**, no el paquete publicado `HonestDiD` — la idea de "magnitudes relativas" (acotar la violación plausible por un múltiplo de la mayor desviación de pre-tendencia observada) se implementa directamente; clases de restricción más elaboradas (suavidad, signo) del mismo paper no.
 - **El balance de la aleatorización se verifica directamente, no se asume.** La §7.1 reporta la diferencia de medias estandarizada de cada covariable en el piloto.
@@ -200,7 +207,9 @@ chile-mining-fleet-causal-impact/
 ├── src/
 │   ├── data/
 │   │   ├── simulate_rct.py
-│   │   └── simulate_staggered_did.py
+│   │   ├── simulate_staggered_did.py
+│   │   ├── download_real_data.py
+│   │   └── semi_synthetic_dgp.py
 │   ├── models/
 │   │   ├── meta_learners.py
 │   │   ├── causal_forest.py
@@ -210,16 +219,22 @@ chile-mining-fleet-causal-impact/
 │   │   ├── targeting_policy.py
 │   │   ├── did_estimators.py
 │   │   ├── sensitivity_analysis.py
-│   │   └── results_db.py
+│   │   ├── results_db.py
+│   │   └── semi_synthetic_diagnostics.py
 │   ├── visualization/
 │   │   ├── plots.py
-│   │   └── interactive_plots.py
-│   └── pipeline.py
+│   │   ├── interactive_plots.py
+│   │   └── semi_synthetic_plots.py
+│   ├── pipeline.py
+│   ├── pipeline_real_data.py      # benchmark semi-sintético (§7.6)
+│   └── pipeline_dr_ablation.py    # ablación de la etapa final del DRLearner (§7.6)
 ├── 02_Double_Robust_CATE_Analysis.ipynb    # ejecutado, salidas reales
+├── data/raw/          # datos simulados y descargados de UCI (generados, ignorados por git)
 ├── outputs/
 │   ├── figures/       # figuras de resultado (png/gif, versionadas)
-│   ├── interactive/   # HTML interactivo Plotly (versionado)
-│   └── reports/       # results.json, results.duckdb (generado)
+│   ├── interactive/   # HTML interactivo Plotly (generado, ignorado por git)
+│   └── reports/       # results.json, results.duckdb, CSVs semi-sintéticos (generados);
+│                      # semi_synthetic_results.md (versionado)
 ├── tests/           # 48 tests, pytest
 ├── requirements.txt
 ├── README.md
@@ -378,6 +393,7 @@ python -m src.pipeline_dr_ablation       # ablación de la etapa final del DRLea
 - **El targeting basado en uplift entregó una mejora real y cuantificada sobre una heurística basada en riesgo** (97,7% vs. 89,7% del beneficio alcanzable a presupuesto fijo, §7.2) — el caso de negocio concreto para construir un modelo de CATE, en vez de recurrir por defecto a "dirigir a quien se ve más riesgoso".
 - **El sesgo de la regresión TWFE ingenua bajo adopción escalonada no es una abstracción de manual acá** — produjo una estimación con 6,7% de error respecto al efecto real, sobre los propios datos simulados de este proyecto, por el mecanismo específico (unidades ya tratadas como controles inválidos bajo un efecto dinámico) que describe la literatura reciente de DiD, y el 1,4% de error del estimador corregido es el pago directo y medido de tomarlo en cuenta.
 - **La estimación doblemente robusta cerró la mayor parte de la brecha Qini-vs-verdad-base, pero no toda, y construirla expuso una falla real de muestra finita** (§7.1): una etapa final flexible convirtió un estimador teóricamente sólido en uno con 19,75% de predicciones de signo equivocado, corregido solo al cambiar a la etapa final más simple que recomiendan los propios autores del método — un recordatorio concreto de que "doblemente robusto" es una garantía de consistencia de muestra grande, no una garantía de estabilidad de muestra finita.
+- **La corrección del DRLearner no se transfirió a datos reales de sensores, y el benchmark lo mostró** (§7.6): con las covariables de Scania, de cola pesada y colineales, la etapa final OLS colapsó a una correlación de −0,01 con el CATE verdadero. Una ablación mostró que ni una transformación log ni Ridge bastaban por separado; juntos, con log1p solo en las columnas asimétricas, lo recuperaron a 0,61–0,79 sin empeorar ninguna otra condición. Causal Forest siguió liderando la recuperación del CATE ahí, pero no de forma significativa en la decisión de focalización, y perdió frente al DRLearner con Ridge en AI4I: lo que los datos respaldan es "el más robusto", no "el mejor en todo".
 - **La conclusión del ATT por grupo-tiempo no es maximamente frágil, pero tampoco es a prueba de balas** (§7.4): un valor de quiebre de 0,70 (relativo a la estimación placebo individual más ruidosa) suena alarmante aislado, pero la media casi cero de la prueba placebo entre 48 estimaciones muestra que no hay una violación sistemática detrás — el ejercicio de límites honestos vale precisamente porque expone esa distinción en vez de reportar solo una estimación puntual y un p-value.
 
 ## Próximos pasos
