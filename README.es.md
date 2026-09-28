@@ -10,7 +10,7 @@
 ![linearmodels](https://img.shields.io/badge/linearmodels-PanelOLS-337AB7?style=flat)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9-F7931E?style=flat&logo=scikitlearn&logoColor=white)
 ![Jupyter](https://img.shields.io/badge/Jupyter-2%20notebooks-F37626?style=flat&logo=jupyter&logoColor=white)
-![Pytest](https://img.shields.io/badge/tests-41%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
+![Pytest](https://img.shields.io/badge/tests-48%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
 ![Status](https://img.shields.io/badge/status-corrida%20real%20del%20pipeline-lightgrey?style=flat)
 
 Este proyecto responde dos preguntas causales distintas sobre la misma intervención — un programa de mantenimiento proactivo para una flota de camiones CAEX — según cómo se implementó:
@@ -18,7 +18,7 @@ Este proyecto responde dos preguntas causales distintas sobre la misma intervenc
 1. **Cuando la intervención fue aleatorizada** (un piloto, Parte A): ¿qué camiones se benefician más, para poder dirigir un presupuesto de mantenimiento limitado a las unidades de mayor valor? Respondido con 5 estimadores de CATE (efecto de tratamiento condicional promedio) — S-learner, T-learner, X-learner, `CausalForestDML` de EconML, y `DRLearner` de EconML (doblemente robusto) — evaluados con curvas de uplift (Qini) y, porque esta es una simulación con verdad base conocida, contrastados directamente contra el efecto individual real.
 2. **Cuando la intervención se desplegó a sitios completos en un cronograma escalonado y no aleatorio** (Parte B): ¿cuál es el efecto causal agregado, cuando una comparación ingenua antes/después arriesga confundir el efecto del tratamiento con tendencias temporales, o — como muestra la literatura moderna de diferencias-en-diferencias — con el sesgo que introduce una regresión de efecto constante cuando el momento de adopción varía y el efecto real es dinámico? Respondido contrastando una regresión ingenua de efectos fijos bidireccionales (TWFE) contra un estimador de ATT por grupo-tiempo, contra el efecto real conocido — y luego preguntando cuánto depende realmente esa conclusión de que se cumpla el supuesto de tendencias paralelas, vía un análisis de sensibilidad dedicado.
 
-Cada número en la §7 viene de una corrida real de `python -m src.pipeline` (semilla 42) sobre datos sintéticos construidos con un efecto real conocido, deliberadamente heterogéneo (Parte A) y dinámico (Parte B) — la única razón por la que cualquiera de estos estimadores puede validarse contra una respuesta real. `02_Double_Robust_CATE_Analysis.ipynb` es un notebook complementario, completamente ejecutado, que contrasta el estimador doblemente robusto contra un efecto ingenuo único para todos, sobre los mismos datos de la Parte A.
+Cada número en las §7.1-7.5 viene de una corrida real de `python -m src.pipeline` (semilla 42) sobre datos sintéticos construidos con un efecto real conocido, deliberadamente heterogéneo (Parte A) y dinámico (Parte B) — la única razón por la que cualquiera de estos estimadores puede validarse contra una respuesta real. La §7.6 vuelve a correr los estimadores de la Parte A sobre 20 semillas con covariables reales de sensores (Scania APS, AI4I 2020), con un tratamiento simulado y un efecto conocido. `02_Double_Robust_CATE_Analysis.ipynb` es un notebook complementario, completamente ejecutado, que contrasta el estimador doblemente robusto contra un efecto ingenuo único para todos, sobre los mismos datos de la Parte A.
 
 ---
 
@@ -191,7 +191,7 @@ Efecto ingenuo único para todos vs. el CATE por camión de `DoublyRobustModel`,
 pytest -v
 ```
 
-41 tests: corrección de la curva uplift y el coeficiente Qini contra un ejemplo calculado a mano, el ATT por grupo-tiempo contra un efecto exacto calculado a mano sobre un panel de juguete sin ruido, chequeos de convención de signo y correlación con verdad base de los meta-learners y el DR-learner, lógica de selección de la política de targeting, chequeos de sanidad del generador de datos (plausibilidad física, balance, efecto pre-tratamiento igual a cero), y el módulo de análisis de sensibilidad (detección de placebo de pre-tendencia, valor de quiebre de límites honestos, y el barrido de inyección de violación) contra valores exactos calculados a mano sobre paneles de juguete deterministas, y el round-trip del almacén de comparación DuckDB en `results_db.py`.
+48 tests: corrección de la curva uplift y el coeficiente Qini contra un ejemplo calculado a mano, el ATT por grupo-tiempo contra un efecto exacto calculado a mano sobre un panel de juguete sin ruido, chequeos de convención de signo y correlación con verdad base de los meta-learners y el DR-learner, lógica de selección de la política de targeting, chequeos de sanidad del generador de datos (plausibilidad física, balance, efecto pre-tratamiento igual a cero), y el módulo de análisis de sensibilidad (detección de placebo de pre-tendencia, valor de quiebre de límites honestos, y el barrido de inyección de violación) contra valores exactos calculados a mano sobre paneles de juguete deterministas, y el round-trip del almacén de comparación DuckDB en `results_db.py`, y el DGP semi-sintético de `semi_synthetic_dgp.py` (proporción exacta de tratados por bloque, CATE verdadero igual a la brecha entre las medias de los brazos, resultados estrictamente positivos sin recorte, fallas reales que entran a la verdad solo cuando se activan, valores faltantes que pasan intactos y reproducibilidad por semilla).
 
 ## Estructura del proyecto
 
@@ -220,7 +220,7 @@ chile-mining-fleet-causal-impact/
 │   ├── figures/       # figuras de resultado (png/gif, versionadas)
 │   ├── interactive/   # HTML interactivo Plotly (versionado)
 │   └── reports/       # results.json, results.duckdb (generado)
-├── tests/           # 41 tests, pytest
+├── tests/           # 48 tests, pytest
 ├── requirements.txt
 ├── README.md
 └── README.es.md
@@ -335,6 +335,40 @@ con.execute("""
 """).df()
 ```
 
+## 7.6 Benchmark semi-sintético sobre covariables reales de sensores (Scania APS y AI4I 2020)
+
+Para probar si los estimadores de la Parte A sobreviven a datos reales de sensores —colas pesadas, valores faltantes, bins de histograma exactamente colineales—, se volvieron a correr sobre **covariables reales** de dos datasets públicos de UCI. El tratamiento y el CATE verdadero siguen siendo simulados, así que cada estimación se puede puntuar contra una respuesta conocida. Los datasets son **Scania APS** (60.000 camiones pesados Scania en operación de carretera, 170 contadores operacionales anonimizados, 8% de celdas faltantes, mediana de |asimetría| de 17,5) y **AI4I 2020** (6 features interpretables de una máquina; su propio autor lo describe como sintético, así que acá funciona como control bien comportado, no como evidencia sobre sensores reales). Cada una de las 20 semillas sortea un piloto de 3.000 unidades, aleatoriza el tratamiento por bloques y aplica una reducción proporcional del downtime que depende de columnas reales de desgaste y estrés. En las condiciones `+ fallas reales`, la etiqueta de falla real del dataset también entra en el resultado sin tratamiento. El resultado nunca se recorta, así que el CATE verdadero registrado sigue siendo exacto. Diseño completo, ablaciones y limitaciones: [`outputs/reports/semi_synthetic_results.md`](outputs/reports/semi_synthetic_results.md).
+
+Correlación de Pearson media con el CATE verdadero, sobre 20 semillas (1.200 unidades de test por semilla):
+
+| Condición | Causal Forest DML | DRLearner (por defecto, etapa final OLS) | DRLearner (Ridge + log1p en columnas asimétricas) |
+|---|---:|---:|---:|
+| Sintético (Parte A original) | 0,813 | 0,718 | **0,816** |
+| AI4I + fallas reales | 0,525 | 0,550 | **0,577** |
+| Scania APS | **0,853** | −0,007 (colapsa) | 0,788 |
+| Scania APS + fallas reales | **0,702** | −0,008 (colapsa) | 0,609 |
+
+Diferencia pareada, Causal Forest menos el DRLearner con log selectivo (misma semilla y mismo split; intervalo t al 95% sobre 20 semillas):
+
+| Condición | Recuperación del CATE (Pearson) | Valor de focalización (fracción de las horas del oráculo, top 30%) |
+|---|---|---|
+| Sintético | −0,003 [−0,047, +0,041] | +0,003 [−0,021, +0,027] |
+| AI4I + fallas reales | −0,052 [−0,090, −0,013] | −0,039 [−0,071, −0,007] |
+| Scania APS | +0,065 [+0,026, +0,103] | +0,003 [−0,034, +0,040] |
+| Scania APS + fallas reales | +0,094 [+0,028, +0,160] | +0,029 [−0,024, +0,083] |
+
+- **El DRLearner por defecto colapsa en Scania, y la causa es el espacio de features, no que los datos sean "reales".** Con el mismo código de DGP, pasar de AI4I a Scania lo lleva de 0,75 a −0,01, con 33% de predicciones de signo equivocado y errores de hasta 10⁶ veces la dispersión del CATE verdadero. Una ablación separó dos causas, y cada una por sí sola se queda corta: el log1p solo llega a 0,12, y Ridge solo a 0,32 con una variación de 0,28 entre semillas. Juntas lo recuperan. El mecanismo es la extrapolación lineal sobre contadores extremos más la colinealidad en X; la ablación no midió el ruido del pseudo-resultado.
+- **La etapa final Ridge con log selectivo es la primera configuración del DRLearner que no pierde en ninguna condición.** Aplica log1p solo a las columnas con |asimetría| > 1 en el split de entrenamiento (umbral fijado antes de correr; 0,5, 2 y 5 revisados como sensibilidad). Así iguala al log global en Scania (156 de 162 columnas son asimétricas) sin la pérdida de 0,08 que el log global causa en los datos sintéticos y de AI4I. Todavía no es el valor por defecto de `DoublyRobustModel`; vive en `src/pipeline_dr_ablation.py`.
+- **Causal Forest mantiene una ventaja significativa en recuperación del CATE en Scania, pero no en la decisión de focalización.** También comete menos errores de signo (2–3% frente a 7–9%). En AI4I, el DRLearner con log selectivo le gana en ambas métricas.
+- **En los datos sintéticos, una etapa final Ridge por sí sola empata con Causal Forest** (0,815 frente a 0,813): la etapa final OLS elegida en la §3.5 dejaba rendimiento sin aprovechar incluso en los datos donde se validó.
+- **El Qini de un solo split es demasiado ruidoso para ordenar estimadores**: su desviación estándar entre semillas va de 0,22 a 1,49 (frente a 0,06–0,17 de la correlación), y en un split el ranking por el CATE verdadero puntuó por debajo de varios estimados.
+
+```powershell
+python -m src.data.download_real_data   # Scania APS + AI4I 2020 desde UCI a data/raw/
+python -m src.pipeline_real_data         # 5 condiciones x 20 semillas x 5 estimadores
+python -m src.pipeline_dr_ablation       # ablación de la etapa final del DRLearner
+```
+
 ---
 
 # 8. Conclusión
@@ -357,7 +391,12 @@ con.execute("""
 
 # 9. Fuente de datos y licencia
 
-Ambos datasets son **simulados sintéticamente** (`src/data/simulate_rct.py`, `src/data/simulate_staggered_did.py`) con una semilla fija (42) — no hay dependencia de datos externos. Cada simulador se construye con un efecto de tratamiento real conocido específicamente para que los estimadores de este proyecto puedan validarse contra una respuesta real, algo que no es observable en ningún problema de inferencia causal del mundo real.
+Los dos datasets del pipeline principal son **simulados sintéticamente** (`src/data/simulate_rct.py`, `src/data/simulate_staggered_did.py`) con una semilla fija (42) — el pipeline principal no depende de datos externos. Cada simulador se construye con un efecto de tratamiento real conocido específicamente para que los estimadores de este proyecto puedan validarse contra una respuesta real, algo que no es observable en ningún problema de inferencia causal del mundo real.
+
+El benchmark semi-sintético (§7.6) usa covariables reales de dos datasets públicos, que `src/data/download_real_data.py` descarga desde el UCI Machine Learning Repository y que no se redistribuyen acá:
+
+- **APS Failure at Scania Trucks** — Scania CV AB (2016), [UCI #421](https://archive.ics.uci.edu/dataset/421/aps+failure+at+scania+trucks), publicado por UCI bajo CC BY 4.0 (la cabecera del propio archivo de datos indica GNU GPL v3).
+- **AI4I 2020 Predictive Maintenance Dataset** — S. Matzka (2020), [UCI #601](https://archive.ics.uci.edu/dataset/601/ai4i+2020+predictive+maintenance+dataset), CC BY 4.0.
 
 Código: MIT — ver [LICENSE](LICENSE).
 

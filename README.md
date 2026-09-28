@@ -10,7 +10,7 @@
 ![linearmodels](https://img.shields.io/badge/linearmodels-PanelOLS-337AB7?style=flat)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9-F7931E?style=flat&logo=scikitlearn&logoColor=white)
 ![Jupyter](https://img.shields.io/badge/Jupyter-2%20notebooks-F37626?style=flat&logo=jupyter&logoColor=white)
-![Pytest](https://img.shields.io/badge/tests-41%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
+![Pytest](https://img.shields.io/badge/tests-48%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
 ![Status](https://img.shields.io/badge/status-real%20pipeline%20run-lightgrey?style=flat)
 
 This project answers two different causal questions about the same intervention — a proactive maintenance program for a CAEX haul-truck fleet — depending on how it was rolled out:
@@ -18,7 +18,7 @@ This project answers two different causal questions about the same intervention 
 1. **When the intervention was randomized** (a pilot, Part A): which trucks benefit most, so a maintenance budget can be targeted at the highest-value units? Answered with 5 CATE (conditional average treatment effect) estimators — S-learner, T-learner, X-learner, EconML's `CausalForestDML`, and EconML's `DRLearner` (doubly robust) — evaluated with uplift (Qini) curves and, because this is a simulation with a known ground truth, checked directly against the real individual-level effect.
 2. **When the intervention was rolled out to whole sites on a staggered, non-random schedule** (Part B): what is the aggregate causal effect, when a naive before/after comparison risks confusing the treatment effect with time trends, or — as the modern difference-in-differences literature shows — with the bias a constant-effect regression introduces when adoption timing varies and the true effect is dynamic? Answered by contrasting a naive two-way fixed-effects (TWFE) regression against a group-time ATT estimator, against the known true effect — and then asking how much that conclusion actually depends on the parallel-trends assumption holding, via a dedicated sensitivity analysis.
 
-Every number in §7 comes from an actual run of `python -m src.pipeline` (seed 42) on synthetic data built with a known, deliberately heterogeneous (Part A) and dynamic (Part B) true effect — the only reason any of these estimators can be validated against a real answer at all. `02_Double_Robust_CATE_Analysis.ipynb` is a companion, fully-executed notebook contrasting the doubly robust estimator against a naive one-size-fits-all effect on the same Part A data.
+Every number in §7.1-7.5 comes from an actual run of `python -m src.pipeline` (seed 42) on synthetic data built with a known, deliberately heterogeneous (Part A) and dynamic (Part B) true effect — the only reason any of these estimators can be validated against a real answer at all. §7.6 re-runs the Part A estimators over 20 seeds on real sensor covariates (Scania APS, AI4I 2020) with a simulated treatment and a known effect. `02_Double_Robust_CATE_Analysis.ipynb` is a companion, fully-executed notebook contrasting the doubly robust estimator against a naive one-size-fits-all effect on the same Part A data.
 
 ---
 
@@ -191,7 +191,7 @@ Naive one-size-fits-all effect vs. `DoublyRobustModel`'s per-truck CATE, on the 
 pytest -v
 ```
 
-41 tests: feature-level correctness of the uplift curve and Qini coefficient against a hand-computed example, the group-time ATT against an exact hand-computed effect on a noise-free toy panel, meta-learner and DR-learner sign-convention/ground-truth-correlation checks, targeting-policy selection logic, DGP sanity checks (physical plausibility, balance, zero pre-treatment effect), and the sensitivity-analysis module (placebo pre-trend detection, honest-bounds breakdown value, and the violation-injection sweep) against hand-computed exact values on deterministic toy panels, and the DuckDB comparison-store round-trip in `results_db.py`.
+48 tests: feature-level correctness of the uplift curve and Qini coefficient against a hand-computed example, the group-time ATT against an exact hand-computed effect on a noise-free toy panel, meta-learner and DR-learner sign-convention/ground-truth-correlation checks, targeting-policy selection logic, DGP sanity checks (physical plausibility, balance, zero pre-treatment effect), and the sensitivity-analysis module (placebo pre-trend detection, honest-bounds breakdown value, and the violation-injection sweep) against hand-computed exact values on deterministic toy panels, and the DuckDB comparison-store round-trip in `results_db.py`, and the semi-synthetic DGP in `semi_synthetic_dgp.py` (exact treated share per block, true CATE equal to the gap between arm means, strictly positive outcomes without clipping, real failures entering the truth only when enabled, missing values passed through untouched, reproducibility by seed).
 
 ## Project structure
 
@@ -220,7 +220,7 @@ chile-mining-fleet-causal-impact/
 │   ├── figures/       # result figures (png/gif, version-controlled)
 │   ├── interactive/   # interactive Plotly HTML (version-controlled)
 │   └── reports/       # results.json, results.duckdb (generated)
-├── tests/           # 41 tests, pytest
+├── tests/           # 48 tests, pytest
 ├── requirements.txt
 ├── README.md
 └── README.es.md
@@ -335,6 +335,40 @@ con.execute("""
 """).df()
 ```
 
+## 7.6 Semi-synthetic benchmark on real sensor covariates (Scania APS & AI4I 2020)
+
+To test whether the Part A estimators survive real sensor data — heavy tails, missing values, exactly collinear histogram bins — they were re-run on **real covariates** from two public UCI datasets, with the treatment and the true CATE still simulated so every estimate can be scored against a known answer: **Scania APS** (60,000 heavy Scania trucks in everyday road operation, 170 anonymized operational counters, 8% missing cells, median |skew| 17.5) and **AI4I 2020** (6 interpretable machine features; its own author describes it as synthetic, so it serves here as a well-behaved control, not as evidence about real sensors). Each of 20 seeds draws a 3,000-unit pilot, block-randomizes treatment, and applies a proportional downtime reduction driven by real wear/stress columns; in the `+ failures` conditions the dataset's real failure label also enters the untreated outcome. Outcomes are never clipped, so the recorded true CATE stays exact. Full design, ablations and limitations: [`outputs/reports/semi_synthetic_results.md`](outputs/reports/semi_synthetic_results.md).
+
+Mean Pearson correlation with the true CATE over 20 seeds (1,200 held-out units per seed):
+
+| Condition | Causal Forest DML | DRLearner (default, OLS final stage) | DRLearner (Ridge + log1p on skewed columns) |
+|---|---:|---:|---:|
+| Synthetic (original Part A) | 0.813 | 0.718 | **0.816** |
+| AI4I + real failures | 0.525 | 0.550 | **0.577** |
+| Scania APS | **0.853** | −0.007 (collapsed) | 0.788 |
+| Scania APS + real failures | **0.702** | −0.008 (collapsed) | 0.609 |
+
+Paired difference, Causal Forest minus the skew-aware DRLearner (same seed and split; 95% t-interval over 20 seeds):
+
+| Condition | CATE recovery (Pearson) | Targeting value (share of oracle hours saved, top 30%) |
+|---|---|---|
+| Synthetic | −0.003 [−0.047, +0.041] | +0.003 [−0.021, +0.027] |
+| AI4I + real failures | −0.052 [−0.090, −0.013] | −0.039 [−0.071, −0.007] |
+| Scania APS | +0.065 [+0.026, +0.103] | +0.003 [−0.034, +0.040] |
+| Scania APS + real failures | +0.094 [+0.028, +0.160] | +0.029 [−0.024, +0.083] |
+
+- **The default DRLearner collapses on Scania, and the cause is the feature space, not "real data" as such.** Same DGP code, AI4I → Scania: 0.75 → −0.01, with 33% wrong-sign predictions and errors up to 10⁶× the true CATE's spread. An ablation separated two causes, and each alone falls short: log1p alone reaches 0.12 and Ridge alone 0.32 with a 0.28 seed-to-seed spread. Together they recover it. The mechanism is linear extrapolation on extreme counters plus collinearity in X; the ablation did not measure pseudo-outcome noise.
+- **The skew-aware Ridge final stage is the first DRLearner configuration that loses in no condition.** It applies log1p only to columns with |skew| > 1 on the training split (threshold fixed before the run; 0.5/2/5 checked as sensitivity), so it matches the global log on Scania (156 of 162 columns are skewed) without the 0.08 loss the global log causes on the synthetic and AI4I data. It is not yet `DoublyRobustModel`'s default; it lives in `src/pipeline_dr_ablation.py`.
+- **Causal Forest keeps a significant lead in CATE recovery on Scania, but not in the targeting decision.** It also makes fewer wrong-sign predictions (2–3% vs. 7–9%). On AI4I the skew-aware DRLearner beats it on both metrics.
+- **On the synthetic data, a Ridge final stage alone ties Causal Forest** (0.815 vs. 0.813): the OLS final stage chosen in §3.5 was leaving performance on the table even on the data it was validated on.
+- **Single-split Qini is too noisy to rank estimators**: across seeds its standard deviation is 0.22–1.49 (vs. 0.06–0.17 for the correlation), and on one split the true-CATE ranking scored below several estimated ones.
+
+```powershell
+python -m src.data.download_real_data   # Scania APS + AI4I 2020 from UCI into data/raw/
+python -m src.pipeline_real_data         # 5 conditions x 20 seeds x 5 estimators
+python -m src.pipeline_dr_ablation       # DRLearner final-stage ablation
+```
+
 ---
 
 # 8. Conclusion
@@ -357,7 +391,12 @@ con.execute("""
 
 # 9. Data source & license
 
-Both datasets are **synthetically simulated** (`src/data/simulate_rct.py`, `src/data/simulate_staggered_did.py`) with a fixed seed (42) — there is no external data dependency. Each simulator is built with a known true treatment effect specifically so this project's estimators can be validated against a real answer, which is not observable in any real-world causal inference problem.
+Both datasets of the main pipeline are **synthetically simulated** (`src/data/simulate_rct.py`, `src/data/simulate_staggered_did.py`) with a fixed seed (42) — the main pipeline has no external data dependency. Each simulator is built with a known true treatment effect specifically so this project's estimators can be validated against a real answer, which is not observable in any real-world causal inference problem.
+
+The semi-synthetic benchmark (§7.6) uses real covariates from two public datasets, downloaded from the UCI Machine Learning Repository by `src/data/download_real_data.py` and not redistributed here:
+
+- **APS Failure at Scania Trucks** — Scania CV AB (2016), [UCI #421](https://archive.ics.uci.edu/dataset/421/aps+failure+at+scania+trucks), listed by UCI under CC BY 4.0 (the data file's own header states GNU GPL v3).
+- **AI4I 2020 Predictive Maintenance Dataset** — S. Matzka (2020), [UCI #601](https://archive.ics.uci.edu/dataset/601/ai4i+2020+predictive+maintenance+dataset), CC BY 4.0.
 
 Code: MIT — see [LICENSE](LICENSE).
 
