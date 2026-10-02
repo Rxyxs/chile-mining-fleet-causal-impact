@@ -11,6 +11,8 @@ __pycache__/
 data/raw/*.csv
 data/raw/*.zip
 data/raw/*.txt
+data/raw/*.gz
+data/raw/*.rda
 !data/raw/.gitkeep
 
 # Artefactos del pipeline que se regeneran (las figuras SI quedan versionadas)

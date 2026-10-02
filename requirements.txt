@@ -14,3 +14,6 @@ nbconvert>=7.16.0
 ipykernel>=6.29.0
 matplotlib_inline>=0.1.6
 plotly>=5.20.0
+pyreadr>=0.5.0
+csdid>=0.4.0
+requests>=2.31.0
