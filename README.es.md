@@ -10,7 +10,7 @@
 ![linearmodels](https://img.shields.io/badge/linearmodels-PanelOLS-337AB7?style=flat)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9-F7931E?style=flat&logo=scikitlearn&logoColor=white)
 ![Jupyter](https://img.shields.io/badge/Jupyter-2%20notebooks-F37626?style=flat&logo=jupyter&logoColor=white)
-![Pytest](https://img.shields.io/badge/tests-48%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
+![Pytest](https://img.shields.io/badge/tests-61%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
 ![Status](https://img.shields.io/badge/status-corrida%20real%20del%20pipeline-lightgrey?style=flat)
 
 Este proyecto responde dos preguntas causales distintas sobre la misma intervención — un programa de mantenimiento proactivo para una flota de camiones CAEX — según cómo se implementó:
@@ -19,6 +19,8 @@ Este proyecto responde dos preguntas causales distintas sobre la misma intervenc
 2. **Cuando la intervención se desplegó a sitios completos en un cronograma escalonado y no aleatorio** (Parte B): ¿cuál es el efecto causal agregado, cuando una comparación ingenua antes/después arriesga confundir el efecto del tratamiento con tendencias temporales, o — como muestra la literatura moderna de diferencias-en-diferencias — con el sesgo que introduce una regresión de efecto constante cuando el momento de adopción varía y el efecto real es dinámico? Respondido contrastando una regresión ingenua de efectos fijos bidireccionales (TWFE) contra un estimador de ATT por grupo-tiempo, contra el efecto real conocido — y luego preguntando cuánto depende realmente esa conclusión de que se cumpla el supuesto de tendencias paralelas, vía un análisis de sensibilidad dedicado.
 
 Cada número en las §7.1-7.5 viene de una corrida real de `python -m src.pipeline` (semilla 42) sobre datos sintéticos construidos con un efecto real conocido, deliberadamente heterogéneo (Parte A) y dinámico (Parte B) — la única razón por la que cualquiera de estos estimadores puede validarse contra una respuesta real. La §7.6 vuelve a correr los estimadores de la Parte A sobre 20 semillas con covariables reales de sensores (Scania APS, AI4I 2020), con un tratamiento simulado y un efecto conocido. `02_Double_Robust_CATE_Analysis.ipynb` es un notebook complementario, completamente ejecutado, que contrasta el estimador doblemente robusto contra un efecto ingenuo único para todos, sobre los mismos datos de la Parte A.
+
+**Validación con datos reales (§7.7).** Una simulación puede puntuar un estimador contra el efecto verdadero porque ella misma lo escribió; los datos reales nunca ofrecen eso. Por eso la §7.7 corre los mismos estimadores sobre dos datasets públicos *reales* que no tienen nada que ver con minería y comprueba lo que sí se puede comprobar ahí: que el DiD de adopción escalonada coincide con una implementación independiente, y que los rankings de CATE se sostienen en un ensayo aleatorizado genuino.
 
 ---
 
@@ -129,6 +131,9 @@ flowchart TB
 | [`src/data/semi_synthetic_dgp.py`](src/data/semi_synthetic_dgp.py) | Piloto semi-sintético sobre covariables reales: tratamiento aleatorizado por bloques y un efecto heterogéneo conocido que depende de columnas reales de desgaste y estrés; opcionalmente, las fallas reales del dataset entran en Y0. |
 | [`src/pipeline_real_data.py`](src/pipeline_real_data.py) | Benchmark semi-sintético: los 5 estimadores de la Parte A en 5 condiciones x 20 semillas, con métricas de recuperación, Qini y focalización independientes de la escala. |
 | [`src/pipeline_dr_ablation.py`](src/pipeline_dr_ablation.py) | Ablación de la etapa final del DRLearner (OLS / log / Ridge / Ridge con log selectivo / LightGBM) que aísla por qué colapsa en Scania. |
+| [`src/data/real_data.py`](src/data/real_data.py) | Descarga y adapta los dos datasets reales de §7.7 (`mpdta`, Hillstrom). |
+| [`src/pipeline_real_did.py`](src/pipeline_real_did.py) | Parte B sobre `mpdta`: el ATT por grupo-tiempo de este proyecto contra la referencia `csdid`, agregado ponderado por cohorte y bootstrap por conglomerados. |
+| [`src/pipeline_real_rct.py`](src/pipeline_real_rct.py) | Parte A sobre el ensayo de Hillstrom: 5 estimadores x 2 campañas x 20 particiones, Qini con p-valores de permutación y efecto de focalización del 30% superior. |
 | [`src/evaluation/semi_synthetic_diagnostics.py`](src/evaluation/semi_synthetic_diagnostics.py) | Dificultad de la verdad base por dataset: fracción de la varianza del CATE que viene de fallas reales, techo de correlación alcanzable, asimetría, faltantes y colinealidad. |
 | [`src/visualization/semi_synthetic_plots.py`](src/visualization/semi_synthetic_plots.py) | Curvas Qini por condición y distribución de métricas por semilla del benchmark semi-sintético. |
 | [`02_Double_Robust_CATE_Analysis.ipynb`](02_Double_Robust_CATE_Analysis.ipynb) | Notebook complementario, completamente ejecutado: efecto ingenuo único para todos vs. `DoublyRobustModel` sobre datos de la Parte A, con gráficos comparativos. |
@@ -198,7 +203,7 @@ Efecto ingenuo único para todos vs. el CATE por camión de `DoublyRobustModel`,
 pytest -v
 ```
 
-48 tests: corrección de la curva uplift y el coeficiente Qini contra un ejemplo calculado a mano, el ATT por grupo-tiempo contra un efecto exacto calculado a mano sobre un panel de juguete sin ruido, chequeos de convención de signo y correlación con verdad base de los meta-learners y el DR-learner, lógica de selección de la política de targeting, chequeos de sanidad del generador de datos (plausibilidad física, balance, efecto pre-tratamiento igual a cero), y el módulo de análisis de sensibilidad (detección de placebo de pre-tendencia, valor de quiebre de límites honestos, y el barrido de inyección de violación) contra valores exactos calculados a mano sobre paneles de juguete deterministas, y el round-trip del almacén de comparación DuckDB en `results_db.py`, y el DGP semi-sintético de `semi_synthetic_dgp.py` (proporción exacta de tratados por bloque, CATE verdadero igual a la brecha entre las medias de los brazos, resultados estrictamente positivos sin recorte, fallas reales que entran a la verdad solo cuando se activan, valores faltantes que pasan intactos y reproducibilidad por semilla).
+61 tests: corrección de la curva uplift y el coeficiente Qini contra un ejemplo calculado a mano, el ATT por grupo-tiempo contra un efecto exacto calculado a mano sobre un panel de juguete sin ruido, chequeos de convención de signo y correlación con verdad base de los meta-learners y el DR-learner, lógica de selección de la política de targeting, chequeos de sanidad del generador de datos (plausibilidad física, balance, efecto pre-tratamiento igual a cero), y el módulo de análisis de sensibilidad (detección de placebo de pre-tendencia, valor de quiebre de límites honestos, y el barrido de inyección de violación) contra valores exactos calculados a mano sobre paneles de juguete deterministas, y el round-trip del almacén de comparación DuckDB en `results_db.py`, y el DGP semi-sintético de `semi_synthetic_dgp.py` (proporción exacta de tratados por bloque, CATE verdadero igual a la brecha entre las medias de los brazos, resultados estrictamente positivos sin recorte, fallas reales que entran a la verdad solo cuando se activan, valores faltantes que pasan intactos y reproducibilidad por semilla).
 
 ## Estructura del proyecto
 
@@ -209,7 +214,8 @@ chile-mining-fleet-causal-impact/
 │   │   ├── simulate_rct.py
 │   │   ├── simulate_staggered_did.py
 │   │   ├── download_real_data.py
-│   │   └── semi_synthetic_dgp.py
+│   │   ├── semi_synthetic_dgp.py
+│   │   └── real_data.py
 │   ├── models/
 │   │   ├── meta_learners.py
 │   │   ├── causal_forest.py
@@ -227,7 +233,9 @@ chile-mining-fleet-causal-impact/
 │   │   └── semi_synthetic_plots.py
 │   ├── pipeline.py
 │   ├── pipeline_real_data.py      # benchmark semi-sintético (§7.6)
-│   └── pipeline_dr_ablation.py    # ablación de la etapa final del DRLearner (§7.6)
+│   ├── pipeline_dr_ablation.py    # ablación de la etapa final del DRLearner (§7.6)
+│   ├── pipeline_real_did.py       # Parte B con datos reales, mpdta (§7.7)
+│   └── pipeline_real_rct.py       # Parte A en un ensayo aleatorizado real, Hillstrom (§7.7)
 ├── 02_Double_Robust_CATE_Analysis.ipynb    # ejecutado, salidas reales
 ├── data/raw/          # datos simulados y descargados de UCI (generados, ignorados por git)
 ├── outputs/
@@ -235,7 +243,7 @@ chile-mining-fleet-causal-impact/
 │   ├── interactive/   # HTML interactivo Plotly (generado, ignorado por git)
 │   └── reports/       # results.json, results.duckdb, CSVs semi-sintéticos (generados);
 │                      # semi_synthetic_results.md (versionado)
-├── tests/           # 48 tests, pytest
+├── tests/           # 61 tests, pytest
 ├── requirements.txt
 ├── README.md
 └── README.es.md
@@ -382,7 +390,60 @@ Diferencia pareada, Causal Forest menos el DRLearner con log selectivo (misma se
 python -m src.data.download_real_data   # Scania APS + AI4I 2020 desde UCI a data/raw/
 python -m src.pipeline_real_data         # 5 condiciones x 20 semillas x 5 estimadores
 python -m src.pipeline_dr_ablation       # ablación de la etapa final del DRLearner
+python -m src.pipeline_real_did         # Parte B con datos reales (mpdta), ~40 s
+python -m src.pipeline_real_rct         # Parte A en un ensayo aleatorizado real (Hillstrom), ~7 min
 ```
+
+## 7.7 Validación con datos reales, sin simulador
+
+Los datos reales nunca revelan el efecto verdadero, así que lo que se puede comprobar ahí es distinto de §7.1-7.3: si una implementación coincide con otra independiente, y si un ranking se sostiene en un experimento aleatorizado genuino. Ambas comprobaciones usan **datasets públicos que no tienen nada que ver con minería**; prueban los estimadores, no la historia del mantenimiento. Se reproducen con `python -m src.pipeline_real_did` (~40 s) y `python -m src.pipeline_real_rct` (~7 min).
+
+### Parte B con `mpdta`: coincidencia con una implementación independiente
+
+`mpdta` es un panel de condados (500 condados de EE. UU., 2003-2007) con un despliegue escalonado de alzas del salario mínimo, el ejemplo de referencia de Callaway & Sant'Anna (2021): cohortes de 20, 40 y 131 condados adoptan en 2004, 2006 y 2007, y 309 condados nunca adoptan. El resultado es el logaritmo del empleo adolescente. El estimador ATT por grupo-tiempo de §3.4 se corre con el período inmediatamente anterior a la adopción como base y se compara, celda por celda, con el paquete `csdid` (un port del paquete `did` de los autores).
+
+| Estimador | Efecto global | Incertidumbre |
+|---|---|---|
+| Referencia `csdid` | −0,040 | EE 0,012 |
+| Este proyecto, ponderado por cohorte | −0,040 | EE bootstrap 0,012; intervalo 95% −0,063 a −0,019 (500 réplicas, por conglomerados de condado) |
+| Efectos fijos de dos vías ingenuo | −0,0365 | EE 0,015; intervalo 95% −0,066 a −0,008 |
+| Promedio simple de las celdas | −0,056 | no calculada |
+
+Las siete celdas ATT(g,t) posteriores al tratamiento coinciden con la referencia con diferencia máxima de **0,00005** (la referencia imprime cuatro decimales).
+
+![Efecto global por estimador en mpdta](outputs/figures/real_did_estimators.png)
+
+- **Esto comprueba la implementación, no la economía.** El código reproduce una referencia sobre datos para los que no fue diseñado.
+- **El promedio simple (−0,056) responde otra pregunta.** Cada celda pesa lo mismo, así que la cohorte de 20 condados pesa igual que la de 131. Ponderar por tamaño de cohorte reproduce el −0,040 de la referencia. Un simple "promedio de celdas" no es un default seguro.
+- **En este panel el TWFE ingenuo (−0,0365) queda cerca de la estimación corregida**, a diferencia del panel simulado de §7.3, donde se desviaba 6,7%. No investigué por qué; el tamaño de ese sesgo depende de cómo difieren los efectos entre cohortes y en el tiempo, y nada obliga a que este panel se parezca al simulado.
+
+Límites: sin covariables, solo controles nunca tratados, cinco períodos, y las estimaciones por celda no traen error estándar aquí (solo el efecto global tiene intervalo bootstrap).
+
+### Parte A con el experimento de e-mail de Hillstrom: rankings de CATE en un ensayo aleatorizado real
+
+A 64.000 clientes se les envió al azar una campaña de e-mail para hombres, una para mujeres, o nada. Cada campaña se compara con el control sin e-mail (cerca de 42.600 clientes por comparación) y el resultado es si el cliente visitó el sitio. Como la asignación fue aleatoria, una partición retenida del 40% puntúa directamente el ranking de cada estimador. La tabla da el efecto del e-mail sobre la tasa de visitas entre el 30% de clientes retenidos que cada estimador ubica más arriba, frente al efecto cuando se elige al azar un 30%, promediado sobre 20 particiones aleatorias.
+
+| Campaña (efecto aleatorizado sobre visitas) | Estimador | Efecto en el 30% superior | Focalización al azar | Particiones donde el Qini supera al azar (p < 0,05) |
+|---|---|---|---|---|
+| Mujeres (+4,5 pp; IC 95% +3,9 a +5,2) | Bosque causal | 7,3 pp | 4,3 pp | 20 / 20 |
+| | Doblemente robusto | 7,2 pp | 4,3 pp | 20 / 20 |
+| | S-learner | 7,0 pp | 4,3 pp | 20 / 20 |
+| | X-learner | 6,5 pp | 4,3 pp | 20 / 20 |
+| | T-learner | 6,0 pp | 4,3 pp | 18 / 20 |
+| Hombres (+7,7 pp; IC 95% +7,0 a +8,3) | S-learner | 8,8 pp | 7,7 pp | 6 / 20 |
+| | Doblemente robusto | 8,8 pp | 7,7 pp | 4 / 20 |
+| | X-learner | 8,4 pp | 7,7 pp | 3 / 20 |
+| | T-learner | 8,3 pp | 7,7 pp | 4 / 20 |
+| | Bosque causal | 7,6 pp | 7,7 pp | 1 / 20 |
+
+![Focalización del 30% superior por estimador y campaña](outputs/figures/real_rct_targeting.png)
+
+- **Campaña para mujeres: heterogeneidad real.** Todos los estimadores superan a la focalización al azar, y focalizar el 30% superior sube el efecto de 4,3 pp a entre 6,0 y 7,3 pp. Bosque causal y doblemente robusto lideran; el T-learner queda último.
+- **Campaña para hombres: casi nada que aprovechar.** El efecto promedio es grande (+7,7 pp) pero quién lo recibe casi no varía con las covariables. El Qini supera al azar en solo 1 a 6 de 20 particiones, y los mejores estimadores ganan cerca de 1,1 pp sobre la focalización al azar, con una dispersión entre particiones de cerca de 0,9 pp. El bosque causal no es mejor que el azar (7,6 contra 7,7).
+- **Ningún estimador gana en ambas campañas**: el bosque causal es primero en la de mujeres y último en la de hombres. La §7.1 lo tenía primero en recuperación del CATE en la simulación; el ranking de estimadores depende de los datos con que se mide.
+- **La dispersión entre particiones es sensibilidad a la partición, no un intervalo de confianza.** Las 20 particiones reutilizan los mismos clientes, así que no doy intervalo sobre las cifras de focalización.
+
+Límites: solo se analiza el resultado de visitas (no corrí compras ni gasto), los p-valores de permutación no están corregidos por probar cinco estimadores en dos campañas, y las covariables son unos pocos campos del historial del cliente.
 
 ---
 
@@ -395,6 +456,7 @@ python -m src.pipeline_dr_ablation       # ablación de la etapa final del DRLea
 - **La estimación doblemente robusta cerró la mayor parte de la brecha Qini-vs-verdad-base, pero no toda, y construirla expuso una falla real de muestra finita** (§7.1): una etapa final flexible convirtió un estimador teóricamente sólido en uno con 19,75% de predicciones de signo equivocado, corregido solo al cambiar a la etapa final más simple que recomiendan los propios autores del método — un recordatorio concreto de que "doblemente robusto" es una garantía de consistencia de muestra grande, no una garantía de estabilidad de muestra finita.
 - **La corrección del DRLearner no se transfirió a datos reales de sensores, y el benchmark lo mostró** (§7.6): con las covariables de Scania, de cola pesada y colineales, la etapa final OLS colapsó a una correlación de −0,01 con el CATE verdadero. Una ablación mostró que ni una transformación log ni Ridge bastaban por separado; juntos, con log1p solo en las columnas asimétricas, lo recuperaron a 0,61–0,79 sin empeorar ninguna otra condición. Causal Forest siguió liderando la recuperación del CATE ahí, pero no de forma significativa en la decisión de focalización, y perdió frente al DRLearner con Ridge en AI4I: lo que los datos respaldan es "el más robusto", no "el mejor en todo".
 - **La conclusión del ATT por grupo-tiempo no es maximamente frágil, pero tampoco es a prueba de balas** (§7.4): un valor de quiebre de 0,70 (relativo a la estimación placebo individual más ruidosa) suena alarmante aislado, pero la media casi cero de la prueba placebo entre 48 estimaciones muestra que no hay una violación sistemática detrás — el ejercicio de límites honestos vale precisamente porque expone esa distinción en vez de reportar solo una estimación puntual y un p-value.
+- **Fuera del simulador los estimadores se sostuvieron, con salvedades** (§7.7): el ATT por grupo-tiempo coincide con una implementación independiente con diferencia de 0,00005 sobre un panel real de condados, y en un ensayo aleatorizado real de e-mail los estimadores de CATE encuentran heterogeneidad genuina en una campaña y casi ninguna en la otra, sin que ningún estimador sea el mejor en ambas. Nada de esto son datos mineros; valida los métodos, no las conclusiones sobre mantenimiento.
 
 ## Próximos pasos
 
@@ -413,6 +475,8 @@ El benchmark semi-sintético (§7.6) usa covariables reales de dos datasets púb
 
 - **APS Failure at Scania Trucks** — Scania CV AB (2016), [UCI #421](https://archive.ics.uci.edu/dataset/421/aps+failure+at+scania+trucks), publicado por UCI bajo CC BY 4.0 (la cabecera del propio archivo de datos indica GNU GPL v3).
 - **AI4I 2020 Predictive Maintenance Dataset** — S. Matzka (2020), [UCI #601](https://archive.ics.uci.edu/dataset/601/ai4i+2020+predictive+maintenance+dataset), CC BY 4.0.
+
+La validación con datos reales (§7.7) descarga dos datasets públicos adicionales con `src/data/real_data.py` y no los redistribuye: `mpdta`, distribuido con el paquete de R `did` de Callaway & Sant'Anna ([bcallaway11/did](https://github.com/bcallaway11/did)), y el experimento de e-mail de Hillstrom (Kevin Hillstrom, MineThatData E-Mail Analytics and Data Mining Challenge, 2008), obtenido desde un espejo público. No verifiqué una licencia para ninguno, por lo que ninguno está versionado acá.
 
 Código: MIT — ver [LICENSE](LICENSE).
 

@@ -23,6 +23,7 @@ real answer, not just the two estimators against each other.
 """
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 from linearmodels.panel import PanelOLS
 
@@ -89,3 +90,52 @@ def aggregate_event_study(group_time_df: pd.DataFrame) -> pd.DataFrame:
 
 def overall_att(group_time_df: pd.DataFrame) -> float:
     return float(group_time_df["att"].mean())
+
+
+def cohort_sizes(df: pd.DataFrame, adoption_col: str = "adoption_month", site_col: str = "site_id") -> pd.Series:
+    """Number of distinct sites in each adoption cohort (never-treated sites excluded)."""
+    treated = df[df[adoption_col].notna()]
+    return treated.groupby(adoption_col)[site_col].nunique().astype(float)
+
+
+def weighted_overall_att(group_time_df: pd.DataFrame, sizes: pd.Series) -> float:
+    """Callaway-Sant'Anna "simple" aggregation of the post-treatment ATT(g,t) cells.
+
+    Each cell is weighted by the number of sites in its cohort, so a cohort that
+    contributes more sites counts proportionally more. ``overall_att`` (an unweighted mean
+    over cells) is a different quantity and gives a different number whenever cohorts
+    differ in size.
+    """
+    weights = group_time_df["cohort_adoption_month"].map(sizes).to_numpy(dtype=float)
+    return float((group_time_df["att"].to_numpy() * weights).sum() / weights.sum())
+
+
+def cluster_bootstrap_overall_att(
+    df: pd.DataFrame,
+    n_boot: int = 300,
+    seed: int = 0,
+    site_col: str = "site_id",
+    adoption_col: str = "adoption_month",
+    month_col: str = "month",
+    outcome_col: str = "downtime_hours",
+    baseline_window: int = 1,
+) -> dict:
+    """Standard error and percentile interval for the weighted overall ATT.
+
+    Resamples whole sites (the unit of clustering) with replacement, so the serial
+    correlation inside a site is preserved, and re-runs the full estimator each time.
+    """
+    rng = np.random.default_rng(seed)
+    sites = df[site_col].unique()
+    groups = {s: g for s, g in df.groupby(site_col)}
+    draws = []
+    for _ in range(n_boot):
+        picked = rng.choice(sites, size=len(sites), replace=True)
+        boot = pd.concat([groups[s].assign(**{site_col: i}) for i, s in enumerate(picked)], ignore_index=True)
+        gt = group_time_att(boot, adoption_col, month_col, outcome_col, baseline_window)
+        if gt.empty:
+            continue
+        draws.append(weighted_overall_att(gt, cohort_sizes(boot, adoption_col, site_col)))
+    draws = np.asarray(draws)
+    lo, hi = np.percentile(draws, [2.5, 97.5])
+    return {"se": float(draws.std(ddof=1)), "ci_low": float(lo), "ci_high": float(hi), "n_boot": int(len(draws))}

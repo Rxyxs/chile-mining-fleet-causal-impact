@@ -10,7 +10,7 @@
 ![linearmodels](https://img.shields.io/badge/linearmodels-PanelOLS-337AB7?style=flat)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9-F7931E?style=flat&logo=scikitlearn&logoColor=white)
 ![Jupyter](https://img.shields.io/badge/Jupyter-2%20notebooks-F37626?style=flat&logo=jupyter&logoColor=white)
-![Pytest](https://img.shields.io/badge/tests-48%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
+![Pytest](https://img.shields.io/badge/tests-61%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
 ![Status](https://img.shields.io/badge/status-real%20pipeline%20run-lightgrey?style=flat)
 
 This project answers two different causal questions about the same intervention — a proactive maintenance program for a CAEX haul-truck fleet — depending on how it was rolled out:
@@ -19,6 +19,8 @@ This project answers two different causal questions about the same intervention 
 2. **When the intervention was rolled out to whole sites on a staggered, non-random schedule** (Part B): what is the aggregate causal effect, when a naive before/after comparison risks confusing the treatment effect with time trends, or — as the modern difference-in-differences literature shows — with the bias a constant-effect regression introduces when adoption timing varies and the true effect is dynamic? Answered by contrasting a naive two-way fixed-effects (TWFE) regression against a group-time ATT estimator, against the known true effect — and then asking how much that conclusion actually depends on the parallel-trends assumption holding, via a dedicated sensitivity analysis.
 
 Every number in §7.1-7.5 comes from an actual run of `python -m src.pipeline` (seed 42) on synthetic data built with a known, deliberately heterogeneous (Part A) and dynamic (Part B) true effect — the only reason any of these estimators can be validated against a real answer at all. §7.6 re-runs the Part A estimators over 20 seeds on real sensor covariates (Scania APS, AI4I 2020) with a simulated treatment and a known effect. `02_Double_Robust_CATE_Analysis.ipynb` is a companion, fully-executed notebook contrasting the doubly robust estimator against a naive one-size-fits-all effect on the same Part A data.
+
+**Real-data validation (§7.7).** A simulation can score an estimator against the true effect because it wrote that effect; real data never offers that. So §7.7 runs the same estimators on two *real* public datasets that have nothing to do with mining and checks what can be checked there: that the staggered-adoption DiD agrees with an independent implementation, and that the CATE rankings hold up on a genuine randomized trial.
 
 ---
 
@@ -129,6 +131,9 @@ flowchart TB
 | [`src/data/semi_synthetic_dgp.py`](src/data/semi_synthetic_dgp.py) | Semi-synthetic pilot on real covariates: block-randomized treatment and a known heterogeneous effect driven by real wear/stress columns, with the dataset's real failures optionally entering Y0. |
 | [`src/pipeline_real_data.py`](src/pipeline_real_data.py) | Semi-synthetic benchmark: the 5 Part A estimators over 5 conditions x 20 seeds, with scale-free recovery, Qini and targeting metrics. |
 | [`src/pipeline_dr_ablation.py`](src/pipeline_dr_ablation.py) | DRLearner final-stage ablation (OLS / log / Ridge / skew-aware Ridge / LightGBM) that isolates why it collapses on Scania. |
+| [`src/data/real_data.py`](src/data/real_data.py) | Downloads and adapts the two real datasets of §7.7 (`mpdta`, Hillstrom). |
+| [`src/pipeline_real_did.py`](src/pipeline_real_did.py) | Part B on `mpdta`: this project's group-time ATT against the `csdid` reference, cohort-weighted aggregate and clustered bootstrap. |
+| [`src/pipeline_real_rct.py`](src/pipeline_real_rct.py) | Part A on the Hillstrom trial: 5 estimators x 2 campaigns x 20 splits, Qini with permutation p-values and top-30% targeting effect. |
 | [`src/evaluation/semi_synthetic_diagnostics.py`](src/evaluation/semi_synthetic_diagnostics.py) | Ground-truth difficulty per dataset: share of CATE variance from real failures, attainable-correlation ceiling, skew, missingness, collinearity. |
 | [`src/visualization/semi_synthetic_plots.py`](src/visualization/semi_synthetic_plots.py) | Per-condition Qini curves and per-seed metric distributions for the semi-synthetic benchmark. |
 | [`02_Double_Robust_CATE_Analysis.ipynb`](02_Double_Robust_CATE_Analysis.ipynb) | Companion, fully-executed notebook: naive one-size-fits-all effect vs. `DoublyRobustModel` on Part A data, with comparative plots. |
@@ -198,7 +203,7 @@ Naive one-size-fits-all effect vs. `DoublyRobustModel`'s per-truck CATE, on the 
 pytest -v
 ```
 
-48 tests: feature-level correctness of the uplift curve and Qini coefficient against a hand-computed example, the group-time ATT against an exact hand-computed effect on a noise-free toy panel, meta-learner and DR-learner sign-convention/ground-truth-correlation checks, targeting-policy selection logic, DGP sanity checks (physical plausibility, balance, zero pre-treatment effect), and the sensitivity-analysis module (placebo pre-trend detection, honest-bounds breakdown value, and the violation-injection sweep) against hand-computed exact values on deterministic toy panels, and the DuckDB comparison-store round-trip in `results_db.py`, and the semi-synthetic DGP in `semi_synthetic_dgp.py` (exact treated share per block, true CATE equal to the gap between arm means, strictly positive outcomes without clipping, real failures entering the truth only when enabled, missing values passed through untouched, reproducibility by seed).
+61 tests: feature-level correctness of the uplift curve and Qini coefficient against a hand-computed example, the group-time ATT against an exact hand-computed effect on a noise-free toy panel, meta-learner and DR-learner sign-convention/ground-truth-correlation checks, targeting-policy selection logic, DGP sanity checks (physical plausibility, balance, zero pre-treatment effect), and the sensitivity-analysis module (placebo pre-trend detection, honest-bounds breakdown value, and the violation-injection sweep) against hand-computed exact values on deterministic toy panels, and the DuckDB comparison-store round-trip in `results_db.py`, and the semi-synthetic DGP in `semi_synthetic_dgp.py` (exact treated share per block, true CATE equal to the gap between arm means, strictly positive outcomes without clipping, real failures entering the truth only when enabled, missing values passed through untouched, reproducibility by seed).
 
 ## Project structure
 
@@ -209,7 +214,8 @@ chile-mining-fleet-causal-impact/
 │   │   ├── simulate_rct.py
 │   │   ├── simulate_staggered_did.py
 │   │   ├── download_real_data.py
-│   │   └── semi_synthetic_dgp.py
+│   │   ├── semi_synthetic_dgp.py
+│   │   └── real_data.py
 │   ├── models/
 │   │   ├── meta_learners.py
 │   │   ├── causal_forest.py
@@ -227,7 +233,9 @@ chile-mining-fleet-causal-impact/
 │   │   └── semi_synthetic_plots.py
 │   ├── pipeline.py
 │   ├── pipeline_real_data.py      # semi-synthetic benchmark (§7.6)
-│   └── pipeline_dr_ablation.py    # DRLearner final-stage ablation (§7.6)
+│   ├── pipeline_dr_ablation.py    # DRLearner final-stage ablation (§7.6)
+│   ├── pipeline_real_did.py       # Part B on real data, mpdta (§7.7)
+│   └── pipeline_real_rct.py       # Part A on a real randomized trial, Hillstrom (§7.7)
 ├── 02_Double_Robust_CATE_Analysis.ipynb    # executed, real outputs
 ├── data/raw/          # simulated and downloaded UCI data (generated, git-ignored)
 ├── outputs/
@@ -235,7 +243,7 @@ chile-mining-fleet-causal-impact/
 │   ├── interactive/   # interactive Plotly HTML (generated, git-ignored)
 │   └── reports/       # results.json, results.duckdb, semi-synthetic CSVs (generated);
 │                      # semi_synthetic_results.md (version-controlled)
-├── tests/           # 48 tests, pytest
+├── tests/           # 61 tests, pytest
 ├── requirements.txt
 ├── README.md
 └── README.es.md
@@ -382,7 +390,60 @@ Paired difference, Causal Forest minus the skew-aware DRLearner (same seed and s
 python -m src.data.download_real_data   # Scania APS + AI4I 2020 from UCI into data/raw/
 python -m src.pipeline_real_data         # 5 conditions x 20 seeds x 5 estimators
 python -m src.pipeline_dr_ablation       # DRLearner final-stage ablation
+python -m src.pipeline_real_did         # Part B on real data (mpdta), ~40 s
+python -m src.pipeline_real_rct         # Part A on a real randomized trial (Hillstrom), ~7 min
 ```
+
+## 7.7 Validation on real data, with no simulator
+
+Real data never reveals the true effect, so what can be checked there is different from §7.1-7.3: whether an implementation agrees with an independent one, and whether a ranking holds up on a genuine randomized experiment. Both checks use **public datasets that have nothing to do with mining**; they test the estimators, not the maintenance story. Reproduce with `python -m src.pipeline_real_did` (~40 s) and `python -m src.pipeline_real_rct` (~7 min).
+
+### Part B on `mpdta`: agreement with an independent implementation
+
+`mpdta` is a county panel (500 US counties, 2003-2007) with a staggered rollout of minimum-wage increases, the worked example of Callaway & Sant'Anna (2021): cohorts of 20, 40 and 131 counties adopt in 2004, 2006 and 2007, and 309 counties never adopt. The outcome is log teen employment. The group-time ATT estimator of §3.4 is run with the period just before adoption as the baseline and compared, cell by cell, with the `csdid` package (a port of the authors' `did` package).
+
+| Estimator | Overall effect | Uncertainty |
+|---|---|---|
+| `csdid` reference | −0.040 | SE 0.012 |
+| This project, cohort-weighted | −0.040 | bootstrap SE 0.012; 95% interval −0.063 to −0.019 (500 draws, clustered by county) |
+| Naive two-way fixed effects | −0.0365 | SE 0.015; 95% interval −0.066 to −0.008 |
+| Unweighted mean of the cells | −0.056 | not computed |
+
+The seven post-treatment ATT(g,t) cells agree with the reference to within **0.00005** (the reference prints four decimals).
+
+![Overall effect by estimator on mpdta](outputs/figures/real_did_estimators.png)
+
+- **This checks the implementation, not the economics.** The code reproduces a reference on data it was not designed around.
+- **The unweighted mean (−0.056) answers a different question.** Every cell counts equally, so the 20-county cohort weighs as much as the 131-county one. Weighting by cohort size reproduces the reference's −0.040. A plain "mean of cells" is not a safe default.
+- **On this panel the naive TWFE (−0.0365) lands close to the corrected estimate**, unlike on the simulated panel of §7.3, where it was 6.7% off. I did not investigate why; the size of that bias depends on how treatment effects differ across cohorts and over time, and nothing makes this panel resemble the simulated one.
+
+Limits: no covariates, never-treated controls only, five periods, and the cell-level estimates carry no standard error here (only the overall effect has a bootstrap interval).
+
+### Part A on the Hillstrom e-mail experiment: CATE rankings on a real randomized trial
+
+64,000 customers were randomly sent a men's e-mail campaign, a women's campaign, or nothing. Each campaign is compared with the no-e-mail control (about 42,600 customers per comparison) and the outcome is whether the customer visited the site. Because assignment was random, a held-out 40% split scores each estimator's ranking directly. The table gives the e-mail's effect on the visit rate among the 30% of held-out customers each estimator ranks highest, against the effect when 30% are chosen at random, averaged over 20 random splits.
+
+| Campaign (randomized effect on visits) | Estimator | Effect in the top 30% | Random targeting | Splits where the Qini beats random (p < 0.05) |
+|---|---|---|---|---|
+| Women's (+4.5 pp; 95% CI +3.9 to +5.2) | Causal forest | 7.3 pp | 4.3 pp | 20 / 20 |
+| | Doubly robust | 7.2 pp | 4.3 pp | 20 / 20 |
+| | S-learner | 7.0 pp | 4.3 pp | 20 / 20 |
+| | X-learner | 6.5 pp | 4.3 pp | 20 / 20 |
+| | T-learner | 6.0 pp | 4.3 pp | 18 / 20 |
+| Men's (+7.7 pp; 95% CI +7.0 to +8.3) | S-learner | 8.8 pp | 7.7 pp | 6 / 20 |
+| | Doubly robust | 8.8 pp | 7.7 pp | 4 / 20 |
+| | X-learner | 8.4 pp | 7.7 pp | 3 / 20 |
+| | T-learner | 8.3 pp | 7.7 pp | 4 / 20 |
+| | Causal forest | 7.6 pp | 7.7 pp | 1 / 20 |
+
+![Targeting the top 30% by estimator and campaign](outputs/figures/real_rct_targeting.png)
+
+- **Women's campaign: real heterogeneity.** Every estimator beats random targeting, and targeting the top 30% raises the effect from 4.3 pp to between 6.0 and 7.3 pp. Causal forest and doubly robust lead; the T-learner is last.
+- **Men's campaign: almost nothing to exploit.** The average effect is large (+7.7 pp) but who receives it barely varies with the covariates. The Qini beats random in only 1 to 6 of 20 splits, and the best estimators gain about 1.1 pp over random targeting with a split-to-split spread of about 0.9 pp. The causal forest is no better than random (7.6 against 7.7).
+- **No estimator wins on both campaigns**: the causal forest is first on the women's campaign and last on the men's. §7.1 had it first on CATE recovery in the simulation; a ranking of estimators depends on the data it was measured on.
+- **The spread across splits is sensitivity to the split, not a confidence interval.** All 20 splits reuse the same customers, so I give no interval on the targeting figures.
+
+Limits: only the visit outcome is analysed (I did not run purchases or spend), the permutation p-values are not corrected for testing five estimators on two campaigns, and the covariates are a handful of customer-history fields.
 
 ---
 
@@ -395,6 +456,7 @@ python -m src.pipeline_dr_ablation       # DRLearner final-stage ablation
 - **Doubly robust estimation closed most of the Qini-vs-ground-truth gap, but not all of it, and building it exposed a real finite-sample failure mode** (§7.1): a flexible final stage turned a theoretically-sound estimator into one with 19.75% wrong-sign predictions, fixed only by switching to the simpler final stage the method's own authors recommend — a concrete reminder that "doubly robust" is a large-sample consistency guarantee, not a finite-sample stability guarantee.
 - **The DRLearner fix did not transfer to real sensor data, and the benchmark said so** (§7.6): on heavy-tailed, collinear Scania covariates the OLS final stage collapsed to a −0.01 correlation with the true CATE. An ablation showed neither a log transform nor Ridge alone was enough; together, with log1p only on the skewed columns, they recovered it to 0.61–0.79 without hurting any other condition. Causal Forest still led on CATE recovery there, but not significantly on the targeting decision, and it lost to the Ridge DRLearner on AI4I, so "most robust" is the claim the data supports, not "best everywhere."
 - **The group-time ATT's conclusion is not maximally fragile, but it is not bulletproof either** (§7.4): a breakdown value of 0.70 (relative to the noisiest single placebo estimate) sounds alarming in isolation, but the placebo test's near-zero *mean* across 48 estimates shows there's no systematic violation driving it — the honest-bounds exercise is valuable precisely because it surfaces that distinction instead of reporting only a point estimate and a p-value.
+- **Outside the simulator the estimators held up, with caveats** (§7.7): the group-time ATT matches an independent implementation to 0.00005 on a real county panel, and on a real randomized e-mail trial the CATE estimators find genuine heterogeneity in one campaign and almost none in the other, with no estimator best on both. None of this is mining data; it validates the methods, not the maintenance conclusions.
 
 ## Future work
 
@@ -413,6 +475,8 @@ The semi-synthetic benchmark (§7.6) uses real covariates from two public datase
 
 - **APS Failure at Scania Trucks** — Scania CV AB (2016), [UCI #421](https://archive.ics.uci.edu/dataset/421/aps+failure+at+scania+trucks), listed by UCI under CC BY 4.0 (the data file's own header states GNU GPL v3).
 - **AI4I 2020 Predictive Maintenance Dataset** — S. Matzka (2020), [UCI #601](https://archive.ics.uci.edu/dataset/601/ai4i+2020+predictive+maintenance+dataset), CC BY 4.0.
+
+The real-data validation (§7.7) downloads two further public datasets with `src/data/real_data.py` and does not redistribute them: `mpdta`, distributed with the R package `did` by Callaway & Sant'Anna ([bcallaway11/did](https://github.com/bcallaway11/did)), and the Hillstrom e-mail experiment (Kevin Hillstrom, MineThatData E-Mail Analytics and Data Mining Challenge, 2008), fetched from a public mirror. I did not verify a license for either, which is why neither is committed here.
 
 Code: MIT — see [LICENSE](LICENSE).
 
