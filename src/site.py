@@ -19,6 +19,7 @@ TEMPLATE = Path(__file__).with_name("site_template.html")
 REPORTS = ROOT / "outputs" / "reports"
 FIGURES_DIR = ROOT / "outputs" / "figures"
 DOCS_DIR = ROOT / "docs"
+ASSETS_DIR = DOCS_DIR / "assets"  # graficas del Monte Carlo (scripts/build_plots.py); la plantilla las referencia
 FIGURES_USED = ["event_study.png", "targeting_policy_comparison.png", "real_did_estimators.png", "real_rct_targeting.png"]
 ESTIMATORS = ["s_learner", "t_learner", "x_learner", "causal_forest", "doubly_robust"]
 
@@ -97,6 +98,9 @@ def build_site(docs_dir: Path = DOCS_DIR, reports: Path = REPORTS, figures_dir: 
     target.mkdir(exist_ok=True)
     for name in FIGURES_USED:
         shutil.copy2(figures_dir / name, target / name)
+    assets_dst = docs_dir / "assets"
+    if ASSETS_DIR.exists() and ASSETS_DIR.resolve() != assets_dst.resolve():  # al generar en docs/ ya estan en su lugar
+        shutil.copytree(ASSETS_DIR, assets_dst, dirs_exist_ok=True)
     return out
 
 

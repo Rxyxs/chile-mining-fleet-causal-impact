@@ -119,10 +119,19 @@
   <p id="reveal"></p>
   <figure><img src="figures/targeting_policy_comparison.png" alt="" loading="lazy"><figcaption data-i18n="f_target"></figcaption></figure>
 
+  <h3 data-i18n="h_mc_a"></h3>
+  <p data-i18n="p_mc_a"></p>
+  <figure><img src="assets/rct_capture_distribution.png" alt="" loading="lazy"><figcaption data-i18n="f_mc_a"></figcaption></figure>
+
   <h2 data-i18n="h_b"></h2>
   <p data-i18n="p_b"></p>
   <div class="tablewrap"><table id="tDid"></table></div>
   <figure><img src="figures/event_study.png" alt="" loading="lazy"><figcaption data-i18n="f_event"></figcaption></figure>
+
+  <h3 data-i18n="h_mc_b"></h3>
+  <p data-i18n="p_mc_b"></p>
+  <figure><img src="assets/did_error_distribution.png" alt="" loading="lazy"><figcaption data-i18n="f_mc_b"></figcaption></figure>
+  <p class="fine" data-i18n="p_sens"></p>
 
   <h2 data-i18n="h_real"></h2>
   <p data-i18n="p_real"></p>
@@ -171,11 +180,18 @@ const I18N = {
     col_est: "Estimador", col_pct: "% del máximo", col_vs: "vs. mayor riesgo (pp)", col_qini: "Qini", col_rec: "Correlación con el efecto verdadero", tag_truth: "elegido con la verdad (README)", tag_qini: "elegido por Qini",
     reveal: "El README mostraba el <b>{t}%</b> del {te}, que es el estimador elegido con la verdad del simulador <b>sobre este mismo test</b>. En la práctica no se tiene esa verdad: el criterio disponible, el Qini, elige {qe}, que captura <b>{q}%</b> a este presupuesto. Y <b>{nb} de 5 estimadores</b> quedan por debajo de la regla simple de mayor riesgo ({r}%). Un modelo de uplift gana a esa regla solo si se elige bien el estimador. El «al azar» es el valor esperado; el README usa un solo sorteo ({sr}%).",
     f_target: "La comparación del README al 30% de presupuesto, con el estimador elegido con la verdad del simulador.",
+    h_mc_a: "¿Y con otras semillas? Treinta repeticiones del piloto",
+    p_mc_a: "Las cifras anteriores salen de un solo piloto simulado. Repetido con 30 semillas fijas (cada una simula un piloto nuevo, con presupuesto del 30%), <b>Causal Forest captura en promedio 94,1%</b> del beneficio máximo, el doblemente robusto 88,6% y la regla de mayor riesgo 88,0%. Causal Forest supera a esa regla en 28 de las 30 semillas y el doblemente robusto en 20; los learners S, T y X lo hacen en 2, 0 y 0. El criterio práctico (Qini) elige el mismo estimador que la verdad en 19 de 30 semillas, y elegir por Qini deja en promedio 2,8% menos beneficio que el mejor estimador de cada semilla.",
+    f_mc_a: "Beneficio capturado por estimador en 30 semillas del piloto simulado, con 30% de presupuesto. Cada punto es una semilla; la línea discontinua es la regla de mayor riesgo (88,0% en promedio).",
     h_b: "2. Un despliegue escalonado por faenas (Parte B)",
     p_b: "Cuando el programa se despliega por faenas en fechas distintas, la regresión de efectos fijos de dos vías (TWFE) usa faenas ya tratadas como control de las que adoptan después. El estimador por grupo-tiempo no, y aquí se mide contra el efecto verdadero del simulador.",
     col_what: "Estimador", col_att: "Efecto (horas)", col_err: "Error vs. el verdadero",
     r_twfe: "TWFE ingenuo", r_gt: "Grupo-tiempo (este proyecto)", r_truth: "Efecto verdadero",
     f_event: "Efecto por mes desde la adopción: el efecto crece y luego se estabiliza, algo que un único coeficiente TWFE no puede representar.",
+    h_mc_b: "¿Cuánto varía el error según el panel? Quinientos paneles",
+    p_mc_b: "El error de 1,5% del grupo-tiempo en la tabla es el de un solo panel. Repetido en <b>500 paneles simulados</b>, el TWFE ingenuo subestima el efecto en promedio en <b>+7,1%</b> (desviación estándar 8,0%), mientras que el grupo-tiempo queda prácticamente sin sesgo (<b>−0,5%</b> en promedio) pero con más dispersión: desviación estándar <b>15,6%</b>. Corregir el sesgo tiene un costo en varianza con 32 faenas: el grupo-tiempo queda más cerca del efecto verdadero que el TWFE en solo 38,6% de los paneles, y apenas 7,4% de los paneles tienen un error igual o menor que el 1,5% publicado. A cambio, el intervalo de 95% cubre el efecto verdadero en 91,8% de los paneles con grupo-tiempo y en 84,6% con TWFE.",
+    f_mc_b: "Distribución del error con signo de TWFE y grupo-tiempo en 500 paneles simulados (positivo = subestima la magnitud del efecto).",
+    p_sens: "Sensibilidad al número de faenas (100 paneles por tamaño, grupo-tiempo con bootstrap por faena): la cobertura del intervalo de 95% es 83% con 16 faenas, 92% con 32, 91% con 64 y 93% con 128. Desde 32 faenas se estabiliza en 91–93%, sin llegar al 95% nominal; con 16 baja, aunque con 100 paneles el error de simulación es de 3 a 4 puntos y la diferencia entre 83% y 92% es de unos dos errores estándar, no una frontera nítida.",
     h_real: "3. Validación con datos reales",
     p_real: "En datos reales el efecto verdadero no se conoce, así que se comprueba otra cosa: acuerdo con una implementación independiente (DiD) y capacidad de ordenar en un ensayo aleatorizado genuino (CATE). Ninguno de los dos datasets es minero: validan los métodos, no las conclusiones de mantenimiento.",
     t_mpdta: "Efecto global sobre el panel real de condados (mpdta)",
@@ -192,7 +208,7 @@ const I18N = {
     h_limits: "4. Límites",
     limits: [
       "<b>Los datos del piloto son simulados.</b> No existe un dataset público que combine asignación aleatoria por camión con un despliegue escalonado por faena; la verdad conocida es lo que permite medir, pero el simulador lo escribí yo.",
-      "<b>Un solo split.</b> Las cifras de la parte 1 salen de una partición; con otras semillas los números se mueven (el README las reporta sobre 20 semillas en el benchmark semi-sintético).",
+      "<b>Las cifras principales son de un solo piloto y un solo panel.</b> Las repeticiones de más arriba (30 pilotos, 500 paneles) muestran cuánto se mueven; usan el mismo simulador, así que miden la variación por muestra, no si el simulador se parece al mundo real.",
       "<b>Elegir estimador con la verdad es una ventaja que nadie tiene en producción.</b> Por eso la tabla muestra los cinco y no solo el mejor.",
       "<b>Los datasets reales no son mineros.</b> Validan los estimadores, no las conclusiones de mantenimiento."
     ],
@@ -221,11 +237,18 @@ const I18N = {
     col_est: "Estimator", col_pct: "% of the maximum", col_vs: "vs. highest risk (pp)", col_qini: "Qini", col_rec: "Correlation with the true effect", tag_truth: "chosen using the truth (README)", tag_qini: "chosen by Qini",
     reveal: "The README showed <b>{t}%</b> for the {te}, the estimator chosen using the simulator's truth <b>on this same test set</b>. In practice that truth is not available: the practical criterion, Qini, picks {qe}, which captures <b>{q}%</b> at this budget. And <b>{nb} of 5 estimators</b> fall below the simple highest-risk rule ({r}%). An uplift model beats that rule only if the estimator is chosen well. “At random” is the expected value; the README uses a single draw ({sr}%).",
     f_target: "The README's comparison at a 30% budget, with the estimator chosen using the simulator's truth.",
+    h_mc_a: "And with other seeds? Thirty repetitions of the pilot",
+    p_mc_a: "The figures above come from a single simulated pilot. Repeated over 30 fixed seeds (each simulates a new pilot, at a 30% budget), <b>Causal Forest captures 94.1% of the maximum benefit on average</b>, doubly robust 88.6% and the highest-risk rule 88.0%. Causal Forest beats that rule in 28 of the 30 seeds and doubly robust in 20; the S, T and X learners do so in 2, 0 and 0. The practical criterion (Qini) picks the same estimator as the truth in 19 of 30 seeds, and choosing by Qini leaves 2.8% less benefit on average than the best estimator of each seed.",
+    f_mc_a: "Benefit captured by each estimator across 30 seeds of the simulated pilot, at a 30% budget. Each dot is one seed; the dashed line is the highest-risk rule (88.0% on average).",
     h_b: "2. A staggered rollout across sites (Part B)",
     p_b: "When the program is rolled out to sites at different dates, the two-way fixed-effects regression (TWFE) uses already-treated sites as controls for later adopters. The group-time estimator does not, and here it is measured against the simulator's true effect.",
     col_what: "Estimator", col_att: "Effect (hours)", col_err: "Error vs. the true effect",
     r_twfe: "Naive TWFE", r_gt: "Group-time (this project)", r_truth: "True effect",
     f_event: "Effect by month since adoption: it ramps up and then levels off, which a single TWFE coefficient cannot represent.",
+    h_mc_b: "How much does the error vary by panel? Five hundred panels",
+    p_mc_b: "The group-time estimator's 1.5% error in the table is that of a single panel. Repeated over <b>500 simulated panels</b>, naive TWFE understates the effect by <b>+7.1%</b> on average (standard deviation 8.0%), while group-time is practically unbiased (<b>−0.5%</b> on average) but more spread out: standard deviation <b>15.6%</b>. Correcting the bias costs variance with 32 sites: group-time ends up closer to the true effect than TWFE in only 38.6% of panels, and just 7.4% of panels have an error at or below the published 1.5%. In exchange, the 95% interval covers the true effect in 91.8% of panels with group-time and 84.6% with TWFE.",
+    f_mc_b: "Distribution of the signed error of TWFE and group-time over 500 simulated panels (positive = understates the effect's magnitude).",
+    p_sens: "Sensitivity to the number of sites (100 panels per size, group-time with a site-level bootstrap): coverage of the 95% interval is 83% with 16 sites, 92% with 32, 91% with 64 and 93% with 128. From 32 sites it settles at 91–93%, short of the nominal 95%; with 16 it drops, although with 100 panels the simulation error is 3 to 4 points and the gap between 83% and 92% is about two standard errors, not a sharp boundary.",
     h_real: "3. Validation on real data",
     p_real: "On real data the true effect is unknown, so something else is checked: agreement with an independent implementation (DiD) and the ability to rank units in a genuine randomized trial (CATE). Neither dataset is about mining: they validate the methods, not the maintenance conclusions.",
     t_mpdta: "Overall effect on the real county panel (mpdta)",
@@ -242,7 +265,7 @@ const I18N = {
     h_limits: "4. Limits",
     limits: [
       "<b>The pilot data are simulated.</b> No public dataset combines truck-level randomized assignment with a staggered site-level rollout; the known truth is what allows measurement, but I wrote the simulator.",
-      "<b>A single split.</b> Part 1's figures come from one partition; with other seeds the numbers move (the README reports 20 seeds in the semi-synthetic benchmark).",
+      "<b>The headline figures come from a single pilot and a single panel.</b> The repetitions above (30 pilots, 500 panels) show how much they move; they use the same simulator, so they measure sampling variation, not whether the simulator resembles the real world.",
       "<b>Choosing the estimator with the truth is an advantage nobody has in production.</b> That is why the table shows all five, not just the best.",
       "<b>The real datasets are not mining data.</b> They validate the estimators, not the maintenance conclusions."
     ],

@@ -45,6 +45,13 @@ def test_the_page_is_written_with_its_assets(built):
     assert "__DATA__" not in html
 
 
+def test_every_asset_the_page_references_is_copied_with_it(built):
+    docs, html, _ = built
+    referenced = set(re.findall(r'src="(assets/[^"]+)"', html))
+    assert referenced, "la plantilla perdio las referencias a docs/assets/"
+    assert all((docs / rel).is_file() for rel in referenced)
+
+
 def test_embedded_data_is_strict_json(built):
     _, html, _ = built
     raw = PAYLOAD.search(html).group(1)
@@ -200,3 +207,16 @@ def test_every_translated_element_has_a_key_in_both_languages():
 def test_the_page_is_accessible_by_keyboard():
     template = site.TEMPLATE.read_text(encoding="utf-8")
     assert "tabindex" in template and "ArrowLeft" in template and "aria-pressed" in template and "aria-describedby" in template
+
+
+# ------------------------------------------------------------------- pagina versionada
+def test_the_committed_page_is_what_the_generator_produces(tmp_path):
+    """Si alguien edita docs/index.html a mano, la proxima regeneracion borraria el cambio: debe editarse la plantilla."""
+    site.build_site(docs_dir=tmp_path)
+    assert (tmp_path / "index.html").read_text(encoding="utf-8") == (ROOT / "docs" / "index.html").read_text(encoding="utf-8")
+
+
+def test_every_image_the_page_references_exists_in_docs():
+    html = (ROOT / "docs" / "index.html").read_text(encoding="utf-8")
+    refs = set(re.findall(r'<img src="((?:figures|assets)/[^"]+)"', html))
+    assert refs and all((ROOT / "docs" / r).exists() for r in refs), [r for r in refs if not (ROOT / "docs" / r).exists()]
