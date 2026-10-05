@@ -12,7 +12,7 @@
 ![linearmodels](https://img.shields.io/badge/linearmodels-PanelOLS-337AB7?style=flat)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9-F7931E?style=flat&logo=scikitlearn&logoColor=white)
 ![Jupyter](https://img.shields.io/badge/Jupyter-2%20notebooks-F37626?style=flat&logo=jupyter&logoColor=white)
-![Pytest](https://img.shields.io/badge/tests-80%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
+![Pytest](https://img.shields.io/badge/tests-123%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
 ![Status](https://img.shields.io/badge/status-corrida%20real%20del%20pipeline-lightgrey?style=flat)
 
 Este proyecto responde dos preguntas causales distintas sobre la misma intervención — un programa de mantenimiento proactivo para una flota de camiones CAEX — según cómo se implementó:
@@ -206,7 +206,7 @@ Efecto ingenuo único para todos vs. el CATE por camión de `DoublyRobustModel`,
 pytest -v
 ```
 
-80 tests: corrección de la curva uplift y el coeficiente Qini contra un ejemplo calculado a mano, el ATT por grupo-tiempo contra un efecto exacto calculado a mano sobre un panel de juguete sin ruido, chequeos de convención de signo y correlación con verdad base de los meta-learners y el DR-learner, lógica de selección de la política de targeting, chequeos de sanidad del generador de datos (plausibilidad física, balance, efecto pre-tratamiento igual a cero), y el módulo de análisis de sensibilidad (detección de placebo de pre-tendencia, valor de quiebre de límites honestos, y el barrido de inyección de violación) contra valores exactos calculados a mano sobre paneles de juguete deterministas, y el round-trip del almacén de comparación DuckDB en `results_db.py`, y el DGP semi-sintético de `semi_synthetic_dgp.py` (proporción exacta de tratados por bloque, CATE verdadero igual a la brecha entre las medias de los brazos, resultados estrictamente positivos sin recorte, fallas reales que entran a la verdad solo cuando se activan, valores faltantes que pasan intactos y reproducibilidad por semilla).
+123 tests: corrección de la curva uplift y el coeficiente Qini contra un ejemplo calculado a mano, el ATT por grupo-tiempo contra un efecto exacto calculado a mano sobre un panel de juguete sin ruido, chequeos de convención de signo y correlación con verdad base de los meta-learners y el DR-learner, lógica de selección de la política de targeting, chequeos de sanidad del generador de datos (plausibilidad física, balance, efecto pre-tratamiento igual a cero), y el módulo de análisis de sensibilidad (detección de placebo de pre-tendencia, valor de quiebre de límites honestos, y el barrido de inyección de violación) contra valores exactos calculados a mano sobre paneles de juguete deterministas, y el round-trip del almacén de comparación DuckDB en `results_db.py`, y el DGP semi-sintético de `semi_synthetic_dgp.py` (proporción exacta de tratados por bloque, CATE verdadero igual a la brecha entre las medias de los brazos, resultados estrictamente positivos sin recorte, fallas reales que entran a la verdad solo cuando se activan, valores faltantes que pasan intactos y reproducibilidad por semilla).
 
 ## Estructura del proyecto
 
@@ -234,6 +234,9 @@ chile-mining-fleet-causal-impact/
 │   │   ├── plots.py
 │   │   ├── interactive_plots.py
 │   │   └── semi_synthetic_plots.py
+│   ├── rct_eval/                  # Monte Carlo de los estimadores de la Parte A, 30 semillas (§7.2)
+│   ├── did_eval/                  # Monte Carlo de los estimadores DiD, 500 paneles (§7.3)
+│   ├── sensitivity/               # cobertura del intervalo según el número de faenas (§7.3)
 │   ├── site.py                    # genera docs/index.html desde los reportes
 │   ├── pipeline.py
 │   ├── pipeline_real_data.py      # benchmark semi-sintético (§7.6)
@@ -248,7 +251,8 @@ chile-mining-fleet-causal-impact/
 │   └── reports/       # results.json, results.duckdb, CSVs semi-sintéticos (generados);
 │                      # semi_synthetic_results.md (versionado)
 ├── docs/            # página de GitHub Pages (generada por src/site.py)
-├── tests/           # 80 tests, pytest
+├── scripts/         # build_plots.py, generate_summary_report.py (figuras e informe Monte Carlo)
+├── tests/           # 123 tests, pytest
 ├── requirements.txt
 ├── README.md
 └── README.es.md
