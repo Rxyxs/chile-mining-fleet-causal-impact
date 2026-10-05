@@ -19,6 +19,11 @@ data/raw/*.rda
 outputs/reports/*
 !outputs/reports/.gitkeep
 !outputs/reports/semi_synthetic_results.md
+# Resultados chicos de los que depende la pagina de GitHub Pages (docs/): se versionan para regenerarla en CI
+!outputs/reports/results.json
+!outputs/reports/targeting_units.csv
+!outputs/reports/real_did.json
+!outputs/reports/real_rct.json
 !outputs/figures/*.png
 !outputs/figures/*.gif
 

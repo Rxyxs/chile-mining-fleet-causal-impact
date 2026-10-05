@@ -1,5 +1,7 @@
 [ 🇺🇸 Read in English ](README.md) | [ 🇨🇱 Español ]
 
+**Página interactiva:** https://rxyxs.github.io/chile-mining-fleet-causal-impact/ — mueve el presupuesto de flota y compara los cinco estimadores contra la regla de riesgo.
+
 # 1. Título del Proyecto
 
 ## Impacto Causal de un Programa de Mantenimiento de Flota: Uplift Modeling con RCT y DiD de Adopción Escalonada
@@ -10,7 +12,7 @@
 ![linearmodels](https://img.shields.io/badge/linearmodels-PanelOLS-337AB7?style=flat)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9-F7931E?style=flat&logo=scikitlearn&logoColor=white)
 ![Jupyter](https://img.shields.io/badge/Jupyter-2%20notebooks-F37626?style=flat&logo=jupyter&logoColor=white)
-![Pytest](https://img.shields.io/badge/tests-61%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
+![Pytest](https://img.shields.io/badge/tests-80%20passing-brightgreen?style=flat&logo=pytest&logoColor=white)
 ![Status](https://img.shields.io/badge/status-corrida%20real%20del%20pipeline-lightgrey?style=flat)
 
 Este proyecto responde dos preguntas causales distintas sobre la misma intervención — un programa de mantenimiento proactivo para una flota de camiones CAEX — según cómo se implementó:
@@ -38,7 +40,7 @@ Ambos datasets acá son sintéticos — no existe un dataset público y gratuito
 | Métrica | Resultado | Qué significa |
 |---|---|---|
 | Mejor estimador CATE vs. verdad conocida | Causal Forest DML, correlación 0,888 (semilla 42, un solo split) | Mayor recuperación del efecto real, aunque el DRLearner obtuvo mejor Qini (la única métrica disponible sin verdad conocida). En 20 semillas las medias son 0,813 (Causal Forest) y 0,718 (DRLearner), así que el split único queda del lado optimista (§7.6) |
-| Valor de política de targeting capturado | **97,7%** del beneficio alcanzable por el oráculo | vs. 89,7% de "priorizar camiones de mayor riesgo" y 54,8% aleatorio, a presupuesto fijo del 30% de la flota |
+| Valor de política de targeting capturado | **97,7%** del beneficio alcanzable por el oráculo (mejor caso) | vs. 89,7% de "priorizar camiones de mayor riesgo" y 54,8% aleatorio, a presupuesto fijo del 30% de la flota. Causal Forest se eligió usando el efecto real sobre este mismo test; el estimador que elige la métrica práctica (Qini) captura 92,5%, y 3 de los 5 estimadores quedan bajo la regla de riesgo (§7.2) |
 | Precisión del DiD de adopción escalonada | Group-time ATT: 1,4% de error vs. efecto real | vs. 6,7% de error de efectos fijos bidireccionales naive, que subestima el efecto real por el mecanismo de sesgo Goodman-Bacon |
 | Bug real de estimador detectado y corregido | DRLearner con 19,75% de predicciones de signo incorrecto → corregido | Causa raíz: un learner de etapa final sobreajustado sobre un pseudo-resultado ruidoso; correlación con la verdad pasó de 0,38 a 0,80 |
 | Balance de aleatorización | Todas las covariables dentro de ±0,1 SMD | Confirma que la asignación de tratamiento del piloto RCT es genuinamente independiente de las características pre-tratamiento |
@@ -127,6 +129,7 @@ flowchart TB
 | [`src/visualization/plots.py`](src/visualization/plots.py) | Renderiza cada figura estática de este README desde la salida real del pipeline. |
 | [`src/visualization/interactive_plots.py`](src/visualization/interactive_plots.py) | Renderiza el gráfico interactivo Plotly de CATE predicho vs. real (§7.1) desde el mismo ajuste semilla-42 de la Parte A. |
 | [`src/pipeline.py`](src/pipeline.py) | Orquestador de punta a punta para ambas partes. |
+| [`src/site.py`](src/site.py) | Genera la página de GitHub Pages (`docs/`) desde los reportes versionados. |
 | [`src/data/download_real_data.py`](src/data/download_real_data.py) | Descarga los datasets Scania APS y AI4I 2020 desde UCI a `data/raw/` (§7.6). |
 | [`src/data/semi_synthetic_dgp.py`](src/data/semi_synthetic_dgp.py) | Piloto semi-sintético sobre covariables reales: tratamiento aleatorizado por bloques y un efecto heterogéneo conocido que depende de columnas reales de desgaste y estrés; opcionalmente, las fallas reales del dataset entran en Y0. |
 | [`src/pipeline_real_data.py`](src/pipeline_real_data.py) | Benchmark semi-sintético: los 5 estimadores de la Parte A en 5 condiciones x 20 semillas, con métricas de recuperación, Qini y focalización independientes de la escala. |
@@ -203,7 +206,7 @@ Efecto ingenuo único para todos vs. el CATE por camión de `DoublyRobustModel`,
 pytest -v
 ```
 
-61 tests: corrección de la curva uplift y el coeficiente Qini contra un ejemplo calculado a mano, el ATT por grupo-tiempo contra un efecto exacto calculado a mano sobre un panel de juguete sin ruido, chequeos de convención de signo y correlación con verdad base de los meta-learners y el DR-learner, lógica de selección de la política de targeting, chequeos de sanidad del generador de datos (plausibilidad física, balance, efecto pre-tratamiento igual a cero), y el módulo de análisis de sensibilidad (detección de placebo de pre-tendencia, valor de quiebre de límites honestos, y el barrido de inyección de violación) contra valores exactos calculados a mano sobre paneles de juguete deterministas, y el round-trip del almacén de comparación DuckDB en `results_db.py`, y el DGP semi-sintético de `semi_synthetic_dgp.py` (proporción exacta de tratados por bloque, CATE verdadero igual a la brecha entre las medias de los brazos, resultados estrictamente positivos sin recorte, fallas reales que entran a la verdad solo cuando se activan, valores faltantes que pasan intactos y reproducibilidad por semilla).
+80 tests: corrección de la curva uplift y el coeficiente Qini contra un ejemplo calculado a mano, el ATT por grupo-tiempo contra un efecto exacto calculado a mano sobre un panel de juguete sin ruido, chequeos de convención de signo y correlación con verdad base de los meta-learners y el DR-learner, lógica de selección de la política de targeting, chequeos de sanidad del generador de datos (plausibilidad física, balance, efecto pre-tratamiento igual a cero), y el módulo de análisis de sensibilidad (detección de placebo de pre-tendencia, valor de quiebre de límites honestos, y el barrido de inyección de violación) contra valores exactos calculados a mano sobre paneles de juguete deterministas, y el round-trip del almacén de comparación DuckDB en `results_db.py`, y el DGP semi-sintético de `semi_synthetic_dgp.py` (proporción exacta de tratados por bloque, CATE verdadero igual a la brecha entre las medias de los brazos, resultados estrictamente positivos sin recorte, fallas reales que entran a la verdad solo cuando se activan, valores faltantes que pasan intactos y reproducibilidad por semilla).
 
 ## Estructura del proyecto
 
@@ -231,6 +234,7 @@ chile-mining-fleet-causal-impact/
 │   │   ├── plots.py
 │   │   ├── interactive_plots.py
 │   │   └── semi_synthetic_plots.py
+│   ├── site.py                    # genera docs/index.html desde los reportes
 │   ├── pipeline.py
 │   ├── pipeline_real_data.py      # benchmark semi-sintético (§7.6)
 │   ├── pipeline_dr_ablation.py    # ablación de la etapa final del DRLearner (§7.6)
@@ -243,7 +247,8 @@ chile-mining-fleet-causal-impact/
 │   ├── interactive/   # HTML interactivo Plotly (generado, ignorado por git)
 │   └── reports/       # results.json, results.duckdb, CSVs semi-sintéticos (generados);
 │                      # semi_synthetic_results.md (versionado)
-├── tests/           # 61 tests, pytest
+├── docs/            # página de GitHub Pages (generada por src/site.py)
+├── tests/           # 80 tests, pytest
 ├── requirements.txt
 ├── README.md
 └── README.es.md
@@ -302,7 +307,22 @@ Cada número y figura de abajo viene de una corrida real de `python -m src.pipel
 
 ![Comparación de políticas de targeting](outputs/figures/targeting_policy_comparison.png)
 
-Dirigir por uplift predicho captura el 97,7% del beneficio alcanzable a este presupuesto — una mejora real y medida de 8 puntos sobre la heurística "dirigir a los camiones más riesgosos" a la que un equipo sin modelo de CATE probablemente recurriría por defecto, y más de 40 puntos sobre asignación aleatoria.
+El 97,7% es un mejor caso. Causal Forest es el estimador que mejor recupera el efecto real, y eso solo se sabe porque los datos son simulados: elegirlo con el efecto real sobre el mismo test lo favorece. Los cinco estimadores sobre el mismo test de 1.200 camiones, con 360 camiones tratados:
+
+| Estimador | % de lo alcanzable | vs. regla de riesgo | Qini | Correlación con el efecto real |
+|---|---:|---:|---:|---:|
+| S-learner | 84,6% | −5,1 pp | 1.234,0 | 0,569 |
+| T-learner | 72,7% | −17,0 pp | 742,3 | 0,349 |
+| X-learner | 80,5% | −9,3 pp | 993,6 | 0,478 |
+| Causal Forest DML | 97,7% | +8,0 pp | 974,0 | 0,888 |
+| Doblemente robusto (DRLearner) | 92,5% | +2,8 pp | 1.254,6 | 0,799 |
+| *Mayor riesgo base (regla)* | *89,7%* | — | — | — |
+
+- **Tres de cinco estimadores rinden menos que la regla simple de riesgo** (S, T y X learner), así que construir un modelo de CATE no basta por sí solo para superar "dirigir a quien se ve más riesgoso".
+- **Un equipo sin el efecto real elegiría por Qini**, que escoge el learner doblemente robusto: 92,5%, una ganancia de 2,8 puntos sobre la regla de riesgo, no de 8.
+- **Asignación aleatoria**: 54,8% es el sorteo con semilla de la tabla anterior; su valor esperado es 55,0% (30% del efecto real total).
+
+[La página interactiva](https://rxyxs.github.io/chile-mining-fleet-causal-impact/) recalcula estos valores para cualquier presupuesto.
 
 ## 7.3 Parte B: diferencias-en-diferencias de adopción escalonada
 
@@ -310,8 +330,8 @@ Dirigir por uplift predicho captura el 97,7% del beneficio alcanzable a este pre
 
 | Estimador | Efecto estimado | vs. efecto real (−9,12h) |
 |---|---:|---:|
-| TWFE ingenuo (`linearmodels.PanelOLS`) | −8,51h (se 0,62) | 6,7% de error |
-| **ATT por grupo-tiempo (estimador de este proyecto)** | **−9,25h** | **1,4% de error** |
+| TWFE ingenuo (`linearmodels.PanelOLS`) | −8,51h (se 0,62) | 6,6% de error |
+| **ATT por grupo-tiempo (estimador de este proyecto)** | **−9,25h** | **1,5% de error** |
 | ATT real total | −9,12h | — |
 
 La regresión ingenua de efecto constante subestima la magnitud del efecto real — consistente con el mecanismo de Goodman-Bacon (§3.4): algunas de sus comparaciones 2x2 implícitas usan sitios ya tratados y aún mejorando como controles para adoptantes más tardíos, restando parte de un efecto real que todavía no había terminado de crecer. El estimador por grupo-tiempo, que nunca hace esa comparación, queda a 1,4% de la verdad.
@@ -415,7 +435,7 @@ Las siete celdas ATT(g,t) posteriores al tratamiento coinciden con la referencia
 
 - **Esto comprueba la implementación, no la economía.** El código reproduce una referencia sobre datos para los que no fue diseñado.
 - **El promedio simple (−0,056) responde otra pregunta.** Cada celda pesa lo mismo, así que la cohorte de 20 condados pesa igual que la de 131. Ponderar por tamaño de cohorte reproduce el −0,040 de la referencia. Un simple "promedio de celdas" no es un default seguro.
-- **En este panel el TWFE ingenuo (−0,0365) queda cerca de la estimación corregida**, a diferencia del panel simulado de §7.3, donde se desviaba 6,7%. No investigué por qué; el tamaño de ese sesgo depende de cómo difieren los efectos entre cohortes y en el tiempo, y nada obliga a que este panel se parezca al simulado.
+- **En este panel el TWFE ingenuo (−0,0365) queda cerca de la estimación corregida**, a diferencia del panel simulado de §7.3, donde se desviaba 6,6%. No investigué por qué; el tamaño de ese sesgo depende de cómo difieren los efectos entre cohortes y en el tiempo, y nada obliga a que este panel se parezca al simulado.
 
 Límites: sin covariables, solo controles nunca tratados, cinco períodos, y las estimaciones por celda no traen error estándar aquí (solo el efecto global tiene intervalo bootstrap).
 
@@ -451,8 +471,8 @@ Límites: solo se analiza el resultado de visitas (no corrí compras ni gasto), 
 
 - **Dos diseños de inferencia causal genuinamente distintos, aplicados a la misma intervención, ambos validados contra una respuesta real conocida**: heterogeneidad a nivel individual desde un piloto aleatorizado (§7.1-7.2), y un efecto agregado desde un despliegue escalonado y no aleatorizado (§7.3) — las dos situaciones que un científico de datos más comúnmente tiene que distinguir antes de elegir un método.
 - **El modelo con mejor desempeño según la métrica que realmente se tendría en producción (Qini) no fue el modelo más cercano a la verdad** (§7.1) — reportado honestamente en vez de elegir el ranking que hiciera la narrativa más prolija, y usado como base de una recomendación concreta (Qini validado cruzadamente, no un solo split) en vez de dejarlo como una advertencia sin resolver.
-- **El targeting basado en uplift entregó una mejora real y cuantificada sobre una heurística basada en riesgo** (97,7% vs. 89,7% del beneficio alcanzable a presupuesto fijo, §7.2) — el caso de negocio concreto para construir un modelo de CATE, en vez de recurrir por defecto a "dirigir a quien se ve más riesgoso".
-- **El sesgo de la regresión TWFE ingenua bajo adopción escalonada no es una abstracción de manual acá** — produjo una estimación con 6,7% de error respecto al efecto real, sobre los propios datos simulados de este proyecto, por el mecanismo específico (unidades ya tratadas como controles inválidos bajo un efecto dinámico) que describe la literatura reciente de DiD, y el 1,4% de error del estimador corregido es el pago directo y medido de tomarlo en cuenta.
+- **El targeting basado en uplift entregó una mejora real y cuantificada sobre una heurística basada en riesgo** (97,7% vs. 89,7% del beneficio alcanzable a presupuesto fijo, mejor caso, §7.2) — pero solo con el estimador elegido usando el efecto real; el que elige Qini llega a 92,5%, y tres de cinco estimadores pierden contra la regla de riesgo, así que el caso para un modelo de CATE depende de elegir bien el estimador.
+- **El sesgo de la regresión TWFE ingenua bajo adopción escalonada no es una abstracción de manual acá** — produjo una estimación con 6,6% de error respecto al efecto real, sobre los propios datos simulados de este proyecto, por el mecanismo específico (unidades ya tratadas como controles inválidos bajo un efecto dinámico) que describe la literatura reciente de DiD, y el 1,5% de error del estimador corregido es el pago directo y medido de tomarlo en cuenta.
 - **La estimación doblemente robusta cerró la mayor parte de la brecha Qini-vs-verdad-base, pero no toda, y construirla expuso una falla real de muestra finita** (§7.1): una etapa final flexible convirtió un estimador teóricamente sólido en uno con 19,75% de predicciones de signo equivocado, corregido solo al cambiar a la etapa final más simple que recomiendan los propios autores del método — un recordatorio concreto de que "doblemente robusto" es una garantía de consistencia de muestra grande, no una garantía de estabilidad de muestra finita.
 - **La corrección del DRLearner no se transfirió a datos reales de sensores, y el benchmark lo mostró** (§7.6): con las covariables de Scania, de cola pesada y colineales, la etapa final OLS colapsó a una correlación de −0,01 con el CATE verdadero. Una ablación mostró que ni una transformación log ni Ridge bastaban por separado; juntos, con log1p solo en las columnas asimétricas, lo recuperaron a 0,61–0,79 sin empeorar ninguna otra condición. Causal Forest siguió liderando la recuperación del CATE ahí, pero no de forma significativa en la decisión de focalización, y perdió frente al DRLearner con Ridge en AI4I: lo que los datos respaldan es "el más robusto", no "el mejor en todo".
 - **La conclusión del ATT por grupo-tiempo no es maximamente frágil, pero tampoco es a prueba de balas** (§7.4): un valor de quiebre de 0,70 (relativo a la estimación placebo individual más ruidosa) suena alarmante aislado, pero la media casi cero de la prueba placebo entre 48 estimaciones muestra que no hay una violación sistemática detrás — el ejercicio de límites honestos vale precisamente porque expone esa distinción en vez de reportar solo una estimación puntual y un p-value.

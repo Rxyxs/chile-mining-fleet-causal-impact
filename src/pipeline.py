@@ -99,6 +99,12 @@ def run_part_a(rct_df: pd.DataFrame) -> dict:
     risk_model.fit(_prep_features(train_df[train_df["treated"] == 0]), train_df.loc[train_df["treated"] == 0, "downtime_next_30d_hours"])
     risk_score_test = risk_model.predict(X_test)
 
+    # Datos por camion del conjunto de test, para que la pagina web recalcule el valor de cada politica de
+    # seleccion con otro presupuesto (la verdad `true_cate_hours` solo existe porque esto es una simulacion).
+    pd.DataFrame(
+        {"true_cate_hours": true_cate_test, "risk_score": risk_score_test, **{f"cate_{n}": p for n, p in cate_predictions.items()}}
+    ).round(4).to_csv(REPORTS_DIR / "targeting_units.csv", index=False)
+
     policy_comparison = evaluate_targeting_policies(
         test_df.reset_index(drop=True), budget_fraction=0.30,
         risk_score=risk_score_test, uplift_score=cate_predictions[best_model_name],

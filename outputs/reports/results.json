@@ -1,0 +1,252 @@
+{
+  "part_a_rct_uplift": {
+    "n_train": 1800,
+    "n_test": 1200,
+    "naive_diff_in_means_ate": 10.689095082801227,
+    "true_ate_test_set": 7.1684075,
+    "qini_coefficients": {
+      "s_learner": 1233.9788704200444,
+      "t_learner": 742.254228306384,
+      "x_learner": 993.5714298277061,
+      "causal_forest": 973.9577206755736,
+      "doubly_robust": 1254.6466498926832
+    },
+    "cate_recovery_correlation": {
+      "s_learner": 0.5685570884186802,
+      "t_learner": 0.3492821823954381,
+      "x_learner": 0.4783314487878558,
+      "causal_forest": 0.8876015289536952,
+      "doubly_robust": 0.7993407046414066
+    },
+    "best_model": "causal_forest",
+    "targeting_policy_comparison": [
+      {
+        "policy": "oracle_true_uplift",
+        "n_trucks_targeted": 360,
+        "total_hours_saved": 4690.87,
+        "avg_hours_saved_per_truck": 13.03,
+        "pct_of_oracle_achieved": 100.0
+      },
+      {
+        "policy": "highest_predicted_uplift",
+        "n_trucks_targeted": 360,
+        "total_hours_saved": 4582.0,
+        "avg_hours_saved_per_truck": 12.728,
+        "pct_of_oracle_achieved": 97.7
+      },
+      {
+        "policy": "highest_baseline_risk",
+        "n_trucks_targeted": 360,
+        "total_hours_saved": 4208.65,
+        "avg_hours_saved_per_truck": 11.691,
+        "pct_of_oracle_achieved": 89.7
+      },
+      {
+        "policy": "random",
+        "n_trucks_targeted": 360,
+        "total_hours_saved": 2570.41,
+        "avg_hours_saved_per_truck": 7.14,
+        "pct_of_oracle_achieved": 54.8
+      }
+    ],
+    "covariate_balance": [
+      {
+        "covariate": "truck_age_years",
+        "smd": -0.031816379560851
+      },
+      {
+        "covariate": "utilization_pct",
+        "smd": 0.043370131983231565
+      },
+      {
+        "covariate": "cumulative_hours_1000s",
+        "smd": -0.00926482745212423
+      },
+      {
+        "covariate": "prior_90d_downtime_hours",
+        "smd": 0.0231076463750825
+      }
+    ]
+  },
+  "part_b_staggered_did": {
+    "naive_twfe": {
+      "att": -8.51435052827843,
+      "se": 0.6223800202238582,
+      "ci_low": -9.73555649146328,
+      "ci_high": -7.293144565093579
+    },
+    "group_time_overall_att": -9.251209150326801,
+    "true_overall_att": -9.117647058823529,
+    "event_study": [
+      {
+        "event_time": 0,
+        "mean_att": -2.3136111111111126,
+        "n_cohorts": 3
+      },
+      {
+        "event_time": 1,
+        "mean_att": -2.7919444444444514,
+        "n_cohorts": 3
+      },
+      {
+        "event_time": 2,
+        "mean_att": -9.159861111111114,
+        "n_cohorts": 3
+      },
+      {
+        "event_time": 3,
+        "mean_att": -11.951527777777779,
+        "n_cohorts": 3
+      },
+      {
+        "event_time": 4,
+        "mean_att": -11.567361111111111,
+        "n_cohorts": 3
+      },
+      {
+        "event_time": 5,
+        "mean_att": -5.251111111111112,
+        "n_cohorts": 3
+      },
+      {
+        "event_time": 6,
+        "mean_att": -8.482777777777779,
+        "n_cohorts": 3
+      },
+      {
+        "event_time": 7,
+        "mean_att": -10.798611111111114,
+        "n_cohorts": 3
+      },
+      {
+        "event_time": 8,
+        "mean_att": -9.792777777777781,
+        "n_cohorts": 3
+      },
+      {
+        "event_time": 9,
+        "mean_att": -13.271041666666676,
+        "n_cohorts": 2
+      },
+      {
+        "event_time": 10,
+        "mean_att": -14.553541666666675,
+        "n_cohorts": 2
+      },
+      {
+        "event_time": 11,
+        "mean_att": -13.761666666666667,
+        "n_cohorts": 2
+      },
+      {
+        "event_time": 12,
+        "mean_att": -11.451666666666673,
+        "n_cohorts": 2
+      },
+      {
+        "event_time": 13,
+        "mean_att": -8.659791666666667,
+        "n_cohorts": 2
+      },
+      {
+        "event_time": 14,
+        "mean_att": -8.91041666666667,
+        "n_cohorts": 2
+      },
+      {
+        "event_time": 15,
+        "mean_att": -14.23791666666667,
+        "n_cohorts": 2
+      },
+      {
+        "event_time": 16,
+        "mean_att": -11.814791666666668,
+        "n_cohorts": 2
+      },
+      {
+        "event_time": 17,
+        "mean_att": -6.51250000000001,
+        "n_cohorts": 1
+      },
+      {
+        "event_time": 18,
+        "mean_att": -11.610000000000007,
+        "n_cohorts": 1
+      },
+      {
+        "event_time": 19,
+        "mean_att": -10.151250000000005,
+        "n_cohorts": 1
+      },
+      {
+        "event_time": 20,
+        "mean_att": -3.272500000000008,
+        "n_cohorts": 1
+      },
+      {
+        "event_time": 21,
+        "mean_att": -3.0087500000000027,
+        "n_cohorts": 1
+      },
+      {
+        "event_time": 22,
+        "mean_att": -9.956250000000004,
+        "n_cohorts": 1
+      },
+      {
+        "event_time": 23,
+        "mean_att": -7.541250000000005,
+        "n_cohorts": 1
+      },
+      {
+        "event_time": 24,
+        "mean_att": -10.10875,
+        "n_cohorts": 1
+      }
+    ],
+    "pretrend_test": {
+      "mean_placebo_att": -0.05256944444444726,
+      "max_abs_placebo_att": 13.709999999999994,
+      "n_placebo_estimates": 48
+    },
+    "honest_bounds_breakdown_m": 0.7000000000000001,
+    "violation_sensitivity_sweep": [
+      {
+        "violation_per_month": -2.0,
+        "estimated_att": 21.72918300653594
+      },
+      {
+        "violation_per_month": -1.5,
+        "estimated_att": 13.984084967320253
+      },
+      {
+        "violation_per_month": -1.0,
+        "estimated_att": 6.23898692810457
+      },
+      {
+        "violation_per_month": -0.5,
+        "estimated_att": -1.5061111111111138
+      },
+      {
+        "violation_per_month": 0.0,
+        "estimated_att": -9.251209150326801
+      },
+      {
+        "violation_per_month": 0.5,
+        "estimated_att": -16.996307189542488
+      },
+      {
+        "violation_per_month": 1.0,
+        "estimated_att": -24.741405228758175
+      },
+      {
+        "violation_per_month": 1.5,
+        "estimated_att": -32.48650326797386
+      },
+      {
+        "violation_per_month": 2.0,
+        "estimated_att": -40.23160130718955
+      }
+    ]
+  }
+}

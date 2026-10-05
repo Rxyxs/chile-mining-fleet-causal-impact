@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Impacto causal de un programa de mantenimiento</title>
+<meta name="description" content="A qué camiones darles un programa de mantenimiento: estimadores de efecto causal contra un simulador con verdad conocida y contra datos reales.">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #fcfcfb; --surface: #ffffff; --ink: #0b0b0b; --ink-2: #52514e; --line: #e4e3df; --band: #efeeea;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --accent: #2a78d6; --gray: #8a8984;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #1a1a19; --surface: #222221; --ink: #ffffff; --ink-2: #c3c2b7; --line: #36352f; --band: #262624;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --accent: #3987e5; --gray: #9a998f;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #1a1a19; --surface: #222221; --ink: #ffffff; --ink-2: #c3c2b7; --line: #36352f; --band: #262624;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --accent: #3987e5; --gray: #9a998f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 16px 96px; }
+  .topbar { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 0 0; }
+  .topbar button, .chips button { font: inherit; font-size: 0.85rem; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 7px; padding: 6px 12px; cursor: pointer; }
+  .topbar button:hover, .chips button:hover { border-color: var(--accent); }
+  button:focus-visible, svg:focus-visible, input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  header { padding: 40px 0 30px; border-bottom: 1px solid var(--line); margin-bottom: 36px; }
+  h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); line-height: 1.15; margin: 0 0 16px; letter-spacing: -0.02em; }
+  .lede { font-size: clamp(1rem, 2.4vw, 1.15rem); color: var(--ink-2); margin: 0 0 22px; max-width: 66ch; }
+  .lede strong { color: var(--ink); }
+  .links a { display: inline-block; margin: 0 8px 8px 0; padding: 8px 14px; border: 1px solid var(--line); border-radius: 7px; text-decoration: none; color: var(--ink); background: var(--surface); font-size: 0.9rem; }
+  .links a:hover { border-color: var(--accent); }
+  h2 { font-size: 1.35rem; margin: 52px 0 8px; padding-top: 10px; border-top: 1px solid var(--line); letter-spacing: -0.01em; }
+  h3 { font-size: 1.02rem; margin: 28px 0 6px; color: var(--ink-2); font-weight: 600; }
+  p { margin: 0 0 14px; max-width: 72ch; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 8px 0; }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .tile .n { font-size: 2rem; font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .tile .l { font-size: 0.85rem; color: var(--ink-2); margin-top: 4px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 14px 12px; margin: 18px 0; position: relative; }
+  .card h3 { margin: 0 0 4px; color: var(--ink); font-size: 1rem; }
+  .sub { font-size: 0.85rem; color: var(--ink-2); margin: 0 0 10px; max-width: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 6px; align-items: center; }
+  .chips .lab { font-size: 0.85rem; color: var(--ink-2); }
+  .chips button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .slider { margin: 14px 0 6px; }
+  .slider label { display: flex; justify-content: space-between; gap: 12px; font-size: 0.92rem; margin-bottom: 6px; flex-wrap: wrap; }
+  .slider output { font-weight: 650; font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .plot { position: relative; }
+  .plot svg { width: 100%; height: auto; display: block; touch-action: pan-y; }
+  .tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 0.82rem; line-height: 1.45; box-shadow: 0 4px 14px rgba(0,0,0,.14); z-index: 5; min-width: 170px; transform: translate(-50%, 0); white-space: nowrap; }
+  .sw { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .sw.dash { background: none !important; border-top: 3px dashed; height: 0; width: 14px; border-radius: 0; vertical-align: 2px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.85rem; margin-top: 6px; }
+  .result { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 12px 0 4px; }
+  .result div { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; }
+  .result b { display: block; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+  .result span { font-size: 0.8rem; color: var(--ink-2); }
+  .tablewrap { overflow: auto; margin: 8px 0; border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+  th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--ink-2); font-weight: 600; background: var(--surface); }
+  tr.sel td { background: var(--band); }
+  td.bad { color: var(--s2); font-weight: 650; }
+  .fine { font-size: 0.85rem; color: var(--ink-2); }
+  figure { margin: 22px 0; }
+  figure img { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+  figcaption { font-size: 0.85rem; color: var(--ink-2); margin-top: 8px; max-width: 72ch; }
+  ul { padding-left: 20px; max-width: 72ch; } li { margin: 6px 0; }
+  footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--ink-2); font-size: 0.85rem; }
+  footer a { color: var(--ink-2); }
+  @media (max-width: 560px) { .wrap { padding: 0 12px 72px; } .tile .n { font-size: 1.7rem; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <button id="lang" type="button" aria-label="Language">EN</button>
+    <button id="theme" type="button" aria-label="Theme" data-i18n="theme">Tema</button>
+  </div>
+  <header>
+    <h1 data-i18n="h1"></h1>
+    <p class="lede" data-i18n="lede"></p>
+    <div class="links">
+      <a href="https://github.com/Rxyxs/chile-mining-fleet-causal-impact" data-i18n="link_repo"></a>
+      <a href="https://github.com/Rxyxs/chile-mining-fleet-causal-impact#readme" data-i18n="link_readme"></a>
+    </div>
+  </header>
+
+  <div class="tiles" id="tiles"></div>
+
+  <h2 data-i18n="h_a"></h2>
+  <p data-i18n="p_a"></p>
+  <div class="card">
+    <h3 data-i18n="c_title"></h3>
+    <p class="sub" data-i18n="c_sub"></p>
+    <div class="chips" role="group"><span class="lab" data-i18n="lab_est"></span><span id="estChips" class="chips" style="margin:0"></span></div>
+    <div class="slider">
+      <label for="budget"><span data-i18n="b_label"></span><output id="bOut"></output></label>
+      <input id="budget" type="range" min="1" max="100" step="1" value="30" aria-describedby="bHelp">
+      <p class="fine" id="bHelp" style="margin:6px 0 0" data-i18n="b_help"></p>
+    </div>
+    <div class="result" id="result"></div>
+    <p id="verdict" style="margin:10px 0 0"></p>
+    <div class="plot" id="plot" style="margin-top:12px"></div>
+    <div class="legend" id="legend"></div>
+  </div>
+  <h3 data-i18n="t_est"></h3>
+  <p class="fine" data-i18n="t_est_note"></p>
+  <div class="tablewrap"><table id="tEst"></table></div>
+  <p id="reveal"></p>
+  <figure><img src="figures/targeting_policy_comparison.png" alt="" loading="lazy"><figcaption data-i18n="f_target"></figcaption></figure>
+
+  <h2 data-i18n="h_b"></h2>
+  <p data-i18n="p_b"></p>
+  <div class="tablewrap"><table id="tDid"></table></div>
+  <figure><img src="figures/event_study.png" alt="" loading="lazy"><figcaption data-i18n="f_event"></figcaption></figure>
+
+  <h2 data-i18n="h_real"></h2>
+  <p data-i18n="p_real"></p>
+  <h3 data-i18n="t_mpdta"></h3>
+  <div class="tablewrap"><table id="tMpdta"></table></div>
+  <p class="fine" id="mpdtaNote"></p>
+  <figure><img src="figures/real_did_estimators.png" alt="" loading="lazy"><figcaption data-i18n="f_mpdta"></figcaption></figure>
+  <h3 data-i18n="t_hill"></h3>
+  <div class="tablewrap"><table id="tHill"></table></div>
+  <p class="fine" data-i18n="p_hill"></p>
+  <figure><img src="figures/real_rct_targeting.png" alt="" loading="lazy"><figcaption data-i18n="f_hill"></figcaption></figure>
+
+  <h2 data-i18n="h_limits"></h2>
+  <ul id="limits"></ul>
+
+  <footer><span data-i18n="foot"></span> <a href="https://github.com/Rxyxs/chile-mining-fleet-causal-impact">github.com/Rxyxs/chile-mining-fleet-causal-impact</a></footer>
+</div>
+
+<script type="application/json" id="data">__DATA__</script>
+<script>
+"use strict";
+const DATA = JSON.parse(document.getElementById("data").textContent);
+const $ = (id) => document.getElementById(id);
+
+const I18N = {
+  es: {
+    theme: "Tema",
+    h1: "Impacto causal de un programa de mantenimiento",
+    lede: "Dos preguntas causales sobre la misma intervención, un programa de mantenimiento proactivo para una flota de camiones. Los datos del piloto son <strong>simulados con un efecto verdadero conocido</strong>, y por eso se puede medir cuánto se recupera de él; los estimadores se validan además contra <strong>dos datasets reales</strong>. Aquí puedes mover el presupuesto y ver cuándo conviene de verdad un modelo de uplift.",
+    link_repo: "Código en GitHub", link_readme: "README completo",
+    n_truth: "del beneficio máximo con el estimador {t}, elegido con la verdad sobre este mismo test", n_qini: "con el estimador que elegiría el criterio disponible en la práctica (Qini): {q}",
+    n_risk: "tratando simplemente a los camiones de mayor riesgo", n_below: "de los 5 estimadores quedan por debajo de esa regla simple de riesgo",
+    h_a: "1. ¿A qué camiones darles el programa?",
+    p_a: "Si el presupuesto alcanza solo para una fracción de la flota, ¿a cuáles? Se compara con el beneficio real (el simulador conoce el efecto verdadero de cada camión) de cuatro maneras de elegir: al azar, los de mayor riesgo de falla, los de mayor efecto predicho por un estimador, y el oráculo que conoce el efecto verdadero. Hay {n} camiones en el conjunto de test.",
+    c_title: "Beneficio capturado, como % del máximo posible, según el presupuesto",
+    c_sub: "Pasa el cursor (o usa las flechas) para leer un presupuesto; un clic lo fija. La línea azul es el estimador elegido.",
+    lab_est: "Estimador:",
+    est_s_learner: "S-learner", est_t_learner: "T-learner", est_x_learner: "X-learner", est_causal_forest: "Causal Forest", est_doubly_robust: "Doblemente robusto",
+    b_label: "Presupuesto: fracción de la flota que recibe el programa: ", b_help: "A 30% son 360 de 1.200 camiones, el caso del README.",
+    pol_oracle: "Oráculo (efecto verdadero)", pol_random: "Al azar (valor esperado)", pol_risk: "Mayor riesgo de falla", pol_est: "Mayor efecto predicho",
+    r_trucks: "Camiones tratados", r_oracle: "Horas ahorradas, oráculo", r_est: "Horas ahorradas, {e}", r_risk: "Horas ahorradas, mayor riesgo", r_rand: "Horas ahorradas, al azar", r_pct: "Del máximo posible",
+    v_above: "A este presupuesto {e} captura {p}% del beneficio máximo, {d} puntos porcentuales sobre la regla de mayor riesgo ({r}%).",
+    v_below: "A este presupuesto {e} captura {p}% del beneficio máximo, {d} puntos porcentuales bajo la regla de mayor riesgo ({r}%): elegir por mayor efecto predicho sale peor que mirar solo el riesgo.",
+    curve_y: "% del máximo posible", curve_x: "Presupuesto (% de la flota)", col_b: "Presupuesto",
+    t_est: "Los cinco estimadores, al presupuesto elegido", t_est_note: "Roja: bajo la regla de mayor riesgo. «Qini» y «correlación» son las dos formas de juzgar un estimador: la primera se puede calcular en la práctica, la segunda necesita la verdad del simulador.",
+    col_est: "Estimador", col_pct: "% del máximo", col_vs: "vs. mayor riesgo (pp)", col_qini: "Qini", col_rec: "Correlación con el efecto verdadero", tag_truth: "elegido con la verdad (README)", tag_qini: "elegido por Qini",
+    reveal: "El README mostraba el <b>{t}%</b> del {te}, que es el estimador elegido con la verdad del simulador <b>sobre este mismo test</b>. En la práctica no se tiene esa verdad: el criterio disponible, el Qini, elige {qe}, que captura <b>{q}%</b> a este presupuesto. Y <b>{nb} de 5 estimadores</b> quedan por debajo de la regla simple de mayor riesgo ({r}%). Un modelo de uplift gana a esa regla solo si se elige bien el estimador. El «al azar» es el valor esperado; el README usa un solo sorteo ({sr}%).",
+    f_target: "La comparación del README al 30% de presupuesto, con el estimador elegido con la verdad del simulador.",
+    h_b: "2. Un despliegue escalonado por faenas (Parte B)",
+    p_b: "Cuando el programa se despliega por faenas en fechas distintas, la regresión de efectos fijos de dos vías (TWFE) usa faenas ya tratadas como control de las que adoptan después. El estimador por grupo-tiempo no, y aquí se mide contra el efecto verdadero del simulador.",
+    col_what: "Estimador", col_att: "Efecto (horas)", col_err: "Error vs. el verdadero",
+    r_twfe: "TWFE ingenuo", r_gt: "Grupo-tiempo (este proyecto)", r_truth: "Efecto verdadero",
+    f_event: "Efecto por mes desde la adopción: el efecto crece y luego se estabiliza, algo que un único coeficiente TWFE no puede representar.",
+    h_real: "3. Validación con datos reales",
+    p_real: "En datos reales el efecto verdadero no se conoce, así que se comprueba otra cosa: acuerdo con una implementación independiente (DiD) y capacidad de ordenar en un ensayo aleatorizado genuino (CATE). Ninguno de los dos datasets es minero: validan los métodos, no las conclusiones de mantenimiento.",
+    t_mpdta: "Efecto global sobre el panel real de condados (mpdta)",
+    col_est2: "Estimador", col_eff: "Efecto", col_unc: "Incertidumbre",
+    m_ref: "Referencia (csdid)", m_mine: "Este proyecto, ponderado por cohorte", m_twfe: "TWFE ingenuo", m_unw: "Promedio simple de celdas",
+    unc_se: "EE {se}", unc_boot: "EE bootstrap {se}; intervalo 95% {lo} a {hi}", unc_ci: "EE {se}; intervalo 95% {lo} a {hi}", unc_none: "no calculada",
+    mpdta_note: "Las celdas ATT(g,t) coinciden con la referencia con diferencia máxima de {d}. Cohortes de {c} condados y {nv} que nunca adoptan.",
+    f_mpdta: "Efecto global por estimador sobre el panel real.",
+    t_hill: "Ensayo aleatorizado real (Hillstrom): efecto del e-mail en el 30% que cada estimador ordena más alto",
+    col_camp: "Campaña", col_top: "30% superior", col_rand: "Al azar", col_sig: "Particiones donde el Qini supera al azar",
+    camp_mens: "Hombres", camp_womens: "Mujeres",
+    p_hill: "Promedio sobre 20 particiones aleatorias. Efecto aleatorizado: {ate_m} puntos para la campaña de hombres y {ate_w} para la de mujeres. La heterogeneidad es clara en una campaña y casi inexistente en la otra, y ningún estimador gana en ambas.",
+    f_hill: "El efecto del e-mail en el 30% superior por estimador y campaña.",
+    h_limits: "4. Límites",
+    limits: [
+      "<b>Los datos del piloto son simulados.</b> No existe un dataset público que combine asignación aleatoria por camión con un despliegue escalonado por faena; la verdad conocida es lo que permite medir, pero el simulador lo escribí yo.",
+      "<b>Un solo split.</b> Las cifras de la parte 1 salen de una partición; con otras semillas los números se mueven (el README las reporta sobre 20 semillas en el benchmark semi-sintético).",
+      "<b>Elegir estimador con la verdad es una ventaja que nadie tiene en producción.</b> Por eso la tabla muestra los cinco y no solo el mejor.",
+      "<b>Los datasets reales no son mineros.</b> Validan los estimadores, no las conclusiones de mantenimiento."
+    ],
+    foot: "Código MIT. Datos del piloto simulados; datos reales: panel mpdta y ensayo de Hillstrom, descargados y no redistribuidos. "
+  },
+  en: {
+    theme: "Theme",
+    h1: "Causal impact of a maintenance program",
+    lede: "Two causal questions about the same intervention, a proactive maintenance program for a truck fleet. The pilot data are <strong>simulated with a known true effect</strong>, which is why recovery can be measured; the estimators are also validated against <strong>two real datasets</strong>. Here you can move the budget and see when an uplift model really pays off.",
+    link_repo: "Code on GitHub", link_readme: "Full README",
+    n_truth: "of the maximum benefit with the {t} estimator, chosen using the truth on this same test set", n_qini: "with the estimator the practical criterion (Qini) would pick: {q}",
+    n_risk: "by simply treating the highest-risk trucks", n_below: "of the 5 estimators fall below that simple risk rule",
+    h_a: "1. Which trucks should get the program?",
+    p_a: "If the budget only covers a fraction of the fleet, which trucks? It is scored against the real benefit (the simulator knows each truck's true effect) for four ways of choosing: at random, the trucks with the highest failure risk, the trucks with the highest effect predicted by an estimator, and the oracle that knows the true effect. There are {n} trucks in the test set.",
+    c_title: "Benefit captured, as % of the maximum possible, by budget",
+    c_sub: "Hover (or use the arrow keys) to read a budget; a click fixes it. The blue line is the selected estimator.",
+    lab_est: "Estimator:",
+    est_s_learner: "S-learner", est_t_learner: "T-learner", est_x_learner: "X-learner", est_causal_forest: "Causal Forest", est_doubly_robust: "Doubly robust",
+    b_label: "Budget: share of the fleet that gets the program: ", b_help: "At 30% that is 360 of 1,200 trucks, the README's case.",
+    pol_oracle: "Oracle (true effect)", pol_random: "At random (expected value)", pol_risk: "Highest failure risk", pol_est: "Highest predicted effect",
+    r_trucks: "Trucks treated", r_oracle: "Hours saved, oracle", r_est: "Hours saved, {e}", r_risk: "Hours saved, highest risk", r_rand: "Hours saved, at random", r_pct: "Of the maximum possible",
+    v_above: "At this budget {e} captures {p}% of the maximum benefit, {d} percentage points above the highest-risk rule ({r}%).",
+    v_below: "At this budget {e} captures {p}% of the maximum benefit, {d} percentage points below the highest-risk rule ({r}%): choosing by predicted effect does worse than looking at risk alone.",
+    curve_y: "% of the maximum possible", curve_x: "Budget (% of the fleet)", col_b: "Budget",
+    t_est: "The five estimators, at the chosen budget", t_est_note: "Red: below the highest-risk rule. “Qini” and “correlation” are the two ways of judging an estimator: the first can be computed in practice, the second needs the simulator's truth.",
+    col_est: "Estimator", col_pct: "% of the maximum", col_vs: "vs. highest risk (pp)", col_qini: "Qini", col_rec: "Correlation with the true effect", tag_truth: "chosen using the truth (README)", tag_qini: "chosen by Qini",
+    reveal: "The README showed <b>{t}%</b> for the {te}, the estimator chosen using the simulator's truth <b>on this same test set</b>. In practice that truth is not available: the practical criterion, Qini, picks {qe}, which captures <b>{q}%</b> at this budget. And <b>{nb} of 5 estimators</b> fall below the simple highest-risk rule ({r}%). An uplift model beats that rule only if the estimator is chosen well. “At random” is the expected value; the README uses a single draw ({sr}%).",
+    f_target: "The README's comparison at a 30% budget, with the estimator chosen using the simulator's truth.",
+    h_b: "2. A staggered rollout across sites (Part B)",
+    p_b: "When the program is rolled out to sites at different dates, the two-way fixed-effects regression (TWFE) uses already-treated sites as controls for later adopters. The group-time estimator does not, and here it is measured against the simulator's true effect.",
+    col_what: "Estimator", col_att: "Effect (hours)", col_err: "Error vs. the true effect",
+    r_twfe: "Naive TWFE", r_gt: "Group-time (this project)", r_truth: "True effect",
+    f_event: "Effect by month since adoption: it ramps up and then levels off, which a single TWFE coefficient cannot represent.",
+    h_real: "3. Validation on real data",
+    p_real: "On real data the true effect is unknown, so something else is checked: agreement with an independent implementation (DiD) and the ability to rank units in a genuine randomized trial (CATE). Neither dataset is about mining: they validate the methods, not the maintenance conclusions.",
+    t_mpdta: "Overall effect on the real county panel (mpdta)",
+    col_est2: "Estimator", col_eff: "Effect", col_unc: "Uncertainty",
+    m_ref: "Reference (csdid)", m_mine: "This project, cohort-weighted", m_twfe: "Naive TWFE", m_unw: "Unweighted mean of cells",
+    unc_se: "SE {se}", unc_boot: "bootstrap SE {se}; 95% interval {lo} to {hi}", unc_ci: "SE {se}; 95% interval {lo} to {hi}", unc_none: "not computed",
+    mpdta_note: "The ATT(g,t) cells agree with the reference to within {d}. Cohorts of {c} counties and {nv} that never adopt.",
+    f_mpdta: "Overall effect by estimator on the real panel.",
+    t_hill: "Real randomized trial (Hillstrom): e-mail effect among the 30% each estimator ranks highest",
+    col_camp: "Campaign", col_top: "Top 30%", col_rand: "At random", col_sig: "Splits where the Qini beats random",
+    camp_mens: "Men's", camp_womens: "Women's",
+    p_hill: "Average over 20 random splits. Randomized effect: {ate_m} points for the men's campaign and {ate_w} for the women's. Heterogeneity is clear in one campaign and almost absent in the other, and no estimator wins on both.",
+    f_hill: "The e-mail's effect in the top 30% by estimator and campaign.",
+    h_limits: "4. Limits",
+    limits: [
+      "<b>The pilot data are simulated.</b> No public dataset combines truck-level randomized assignment with a staggered site-level rollout; the known truth is what allows measurement, but I wrote the simulator.",
+      "<b>A single split.</b> Part 1's figures come from one partition; with other seeds the numbers move (the README reports 20 seeds in the semi-synthetic benchmark).",
+      "<b>Choosing the estimator with the truth is an advantage nobody has in production.</b> That is why the table shows all five, not just the best.",
+      "<b>The real datasets are not mining data.</b> They validate the estimators, not the maintenance conclusions."
+    ],
+    foot: "MIT code. Simulated pilot data; real data: the mpdta panel and the Hillstrom trial, downloaded and not redistributed. "
+  }
+};
+
+let lang = "es";
+try { lang = localStorage.getItem("lang") || (navigator.language || "es").slice(0, 2); } catch (e) {}
+if (!I18N[lang]) lang = "es";
+const t = (k) => I18N[lang][k];
+const loc = () => (lang === "es" ? "es-CL" : "en-US");
+const num = (v, d = 0) => v.toLocaleString(loc(), { minimumFractionDigits: d, maximumFractionDigits: d });
+const fill = (s, o) => s.replace(/\{(\w+)\}/g, (_, k) => (k in o ? o[k] : ""));
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const label = (key) => t("est_" + key);
+
+/* ----------------------------------------------- valor de cada politica, por presupuesto */
+const N = DATA.n_units, TRUE = DATA.units.true;
+function cumulative(scores) {
+  const order = Array.from({ length: N }, (_, i) => i).sort((a, b) => scores[b] - scores[a] || a - b);
+  const out = new Float64Array(N + 1);
+  for (let i = 0; i < N; i++) out[i + 1] = out[i] + TRUE[order[i]];
+  return out;
+}
+const ORACLE = cumulative(TRUE), RISK = cumulative(DATA.units.risk), TOTAL = ORACLE[N];
+const EST = Object.fromEntries(DATA.estimators.map((e) => [e.key, cumulative(DATA.units.cate[e.key])]));
+const mOf = (budgetPct) => Math.max(1, Math.round((N * budgetPct) / 100));
+const randomValue = (m) => (TOTAL * m) / N;
+const pctOf = (value, m) => (100 * value) / ORACLE[m];
+const BY_KEY = Object.fromEntries(DATA.estimators.map((e) => [e.key, e]));
+
+function summary(budgetPct) {
+  const m = mOf(budgetPct), risk = pctOf(RISK[m], m);
+  const est = Object.fromEntries(DATA.estimators.map((e) => [e.key, pctOf(EST[e.key][m], m)]));
+  return { m, oracle: ORACLE[m], random: randomValue(m), risk, riskPct: risk, randomPct: pctOf(randomValue(m), m), est, below: DATA.estimators.filter((e) => est[e.key] < risk).length };
+}
+
+const state = { est: DATA.best_by_truth, budget: 30 };
+
+/* ------------------------------------------------------------------- vistas */
+function renderStatic() {
+  document.documentElement.lang = lang;
+  const s30 = summary(30);
+  const fl = { n: num(N) };
+  document.querySelectorAll("[data-i18n]").forEach((e) => { const v = t(e.dataset.i18n); if (typeof v === "string") e.innerHTML = fill(v, fl); });
+  $("tiles").innerHTML = [
+    [num(s30.est[DATA.best_by_truth], 1) + "%", fill(t("n_truth"), { t: label(DATA.best_by_truth) })],
+    [num(s30.est[DATA.best_by_qini], 1) + "%", fill(t("n_qini"), { q: label(DATA.best_by_qini) })],
+    [num(s30.risk, 1) + "%", t("n_risk")],
+    [s30.below + " / 5", t("n_below")],
+  ].map((x) => `<div class="tile"><div class="n">${x[0]}</div><div class="l">${x[1]}</div></div>`).join("");
+  $("limits").innerHTML = t("limits").map((x) => `<li>${x}</li>`).join("");
+  document.querySelectorAll("figure img").forEach((img) => { img.alt = img.nextElementSibling ? img.nextElementSibling.textContent : ""; });
+  $("lang").textContent = lang === "es" ? "EN" : "ES";
+  document.title = t("h1");
+  renderStaticTables();
+}
+
+function renderStaticTables() {
+  const b = DATA.part_b, sg = (v) => num(v, 2);
+  $("tDid").innerHTML = `<thead><tr><th>${t("col_what")}</th><th>${t("col_att")}</th><th>${t("col_err")}</th></tr></thead><tbody>` +
+    `<tr><td>${t("r_twfe")}</td><td>${sg(b.twfe.att)} (${t("unc_se").replace("{se}", sg(b.twfe.se))})</td><td>${num(b.twfe.error_pct, 1)}%</td></tr>` +
+    `<tr class="sel"><td>${t("r_gt")}</td><td>${sg(b.group_time.att)}</td><td>${num(b.group_time.error_pct, 1)}%</td></tr>` +
+    `<tr><td>${t("r_truth")}</td><td>${sg(b.truth)}</td><td>—</td></tr></tbody>`;
+
+  const d = DATA.real_did, n3 = (v) => num(v, 3), n4 = (v) => num(v, 4);
+  const rows = [
+    [t("m_ref"), n3(d.reference.att), fill(t("unc_se"), { se: n3(d.reference.se) })],
+    [t("m_mine"), n3(d.mine.att), fill(t("unc_boot"), { se: n3(d.mine.se), lo: n3(d.mine.ci_low), hi: n3(d.mine.ci_high) })],
+    [t("m_twfe"), n4(d.twfe.att), fill(t("unc_ci"), { se: n3(d.twfe.se), lo: n3(d.twfe.ci_low), hi: n3(d.twfe.ci_high) })],
+    [t("m_unw"), n3(d.unweighted), t("unc_none")],
+  ];
+  $("tMpdta").innerHTML = `<thead><tr><th>${t("col_est2")}</th><th>${t("col_eff")}</th><th>${t("col_unc")}</th></tr></thead><tbody>` +
+    rows.map((r, i) => `<tr class="${i === 1 ? "sel" : ""}"><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join("") + "</tbody>";
+  $("mpdtaNote").textContent = fill(t("mpdta_note"), { d: num(d.max_diff, 5), c: Object.values(d.cohorts).join(", "), nv: d.never });
+
+  const arms = DATA.real_rct, names = ["Mens E-Mail", "Womens E-Mail"], campKey = { "Mens E-Mail": "camp_mens", "Womens E-Mail": "camp_womens" };
+  const body = names.flatMap((arm) => DATA.estimators.map((e, i) => {
+    const m = arms[arm].models[e.key];
+    return `<tr><td>${i === 0 ? t(campKey[arm]) : ""}</td><td>${label(e.key)}</td><td>${num(m.top30, 1)} pp</td><td>${num(m.random, 1)} pp</td><td>${m.sig} / ${arms[arm].n_seeds}</td></tr>`;
+  })).join("");
+  $("tHill").innerHTML = `<thead><tr><th>${t("col_camp")}</th><th>${t("col_est")}</th><th>${t("col_top")}</th><th>${t("col_rand")}</th><th>${t("col_sig")}</th></tr></thead><tbody>${body}</tbody>`;
+  const hill = document.querySelector('[data-i18n="p_hill"]');
+  hill.innerHTML = fill(t("p_hill"), { ate_m: num(arms["Mens E-Mail"].ate, 1), ate_w: num(arms["Womens E-Mail"].ate, 1) });
+}
+
+function renderChips() {
+  const host = $("estChips"); host.innerHTML = "";
+  DATA.estimators.forEach((e) => {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = label(e.key); b.setAttribute("aria-pressed", state.est === e.key);
+    b.onclick = () => { state.est = e.key; renderChips(); renderDynamic(); renderCurve(); };
+    host.appendChild(b);
+  });
+}
+
+function renderDynamic() {
+  const s = summary(state.budget), e = state.est;
+  $("bOut").textContent = num(state.budget, 0) + "% (" + num(s.m) + " " + (lang === "es" ? "camiones" : "trucks") + ")";
+  const estV = EST[e][s.m];
+  $("result").innerHTML = [
+    [num(s.m), t("r_trucks")], [num(s.oracle, 0), t("r_oracle")], [num(estV, 0), fill(t("r_est"), { e: label(e) })],
+    [num(RISK[s.m], 0), t("r_risk")], [num(s.random, 0), t("r_rand")], [num(s.est[e], 1) + "%", t("r_pct")],
+  ].map((x) => `<div><b>${x[0]}</b><span>${x[1]}</span></div>`).join("");
+  const diff = s.est[e] - s.riskPct;
+  $("verdict").innerHTML = fill(t(diff >= 0 ? "v_above" : "v_below"), { e: label(e), p: num(s.est[e], 1), d: num(Math.abs(diff), 1), r: num(s.riskPct, 1) });
+
+  const rows = DATA.estimators.map((x) => {
+    const vs = s.est[x.key] - s.riskPct, tags = [];
+    if (x.key === DATA.best_by_truth) tags.push("★ " + t("tag_truth"));
+    if (x.key === DATA.best_by_qini) tags.push("◆ " + t("tag_qini"));
+    return `<tr class="${x.key === e ? "sel" : ""}"><td>${label(x.key)}${tags.length ? ` <span class="fine">${tags.join("; ")}</span>` : ""}</td><td>${num(s.est[x.key], 1)}%</td><td class="${vs < 0 ? "bad" : ""}">${(vs >= 0 ? "+" : "−") + num(Math.abs(vs), 1)}</td><td>${num(x.qini, 0)}</td><td>${num(x.recovery, 2)}</td></tr>`;
+  }).join("");
+  $("tEst").innerHTML = `<thead><tr><th>${t("col_est")}</th><th>${t("col_pct")}</th><th>${t("col_vs")}</th><th>${t("col_qini")}</th><th>${t("col_rec")}</th></tr></thead><tbody>${rows}</tbody>`;
+
+  const s30 = summary(30), q = BY_KEY[DATA.best_by_qini];
+  $("reveal").innerHTML = fill(t("reveal"), {
+    t: num(s.est[DATA.best_by_truth], 1), te: label(DATA.best_by_truth), qe: label(q.key), q: num(s.est[q.key], 1),
+    nb: s.below, r: num(s.riskPct, 1), sr: num(DATA.seeded_random_pct, 1),
+  });
+}
+
+/* ---------------------------------------------------------- grafico de presupuesto */
+function renderCurve() {
+  const host = $("plot"); host.innerHTML = "";
+  const W = Math.max(300, Math.round(host.clientWidth) || 900), H = W < 560 ? 300 : 360, m = { l: 46, r: 12, t: 26, b: 44 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const X = (b) => m.l + (b / 100) * iw, Y = (v) => m.t + ih - (Math.max(0, Math.min(100, v)) / 100) * ih;
+  const budgets = Array.from({ length: 100 }, (_, i) => i + 1);
+  const series = [
+    { key: "oracle", color: css("--ink"), dash: "6 4", width: 1.4, label: t("pol_oracle"), val: () => 100 },
+    { key: "est", color: css("--s1"), dash: "none", width: 2.6, label: t("pol_est") + " (" + label(state.est) + ")", val: (b) => pctOf(EST[state.est][mOf(b)], mOf(b)) },
+    { key: "risk", color: css("--s2"), dash: "none", width: 2.2, label: t("pol_risk"), val: (b) => pctOf(RISK[mOf(b)], mOf(b)) },
+    { key: "random", color: css("--gray"), dash: "3 4", width: 2, label: t("pol_random"), val: (b) => pctOf(randomValue(mOf(b)), mOf(b)) },
+  ];
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg"); svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("role", "img"); svg.setAttribute("tabindex", "0"); svg.setAttribute("aria-label", t("c_title")); host.appendChild(svg);
+  const el = (tag, attrs, text) => { const e = document.createElementNS(ns, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; svg.appendChild(e); return e; };
+  for (let v = 0; v <= 100; v += 20) { el("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: css("--line"), "stroke-width": 1 }); el("text", { x: m.l - 8, y: Y(v) + 4, "text-anchor": "end", "font-size": 11, fill: css("--ink-2") }, num(v, 0)); }
+  for (let b = 0; b <= 100; b += 20) el("text", { x: X(b), y: H - 24, "text-anchor": "middle", "font-size": 11, fill: css("--ink-2") }, num(b, 0) + "%");
+  el("text", { x: m.l + iw / 2, y: H - 6, "text-anchor": "middle", "font-size": 11, fill: css("--ink-2") }, t("curve_x"));
+  el("text", { x: 4, y: 12, "font-size": 11, fill: css("--ink-2") }, t("curve_y"));
+  series.forEach((sr) => {
+    const d = budgets.map((b, i) => (i ? "L" : "M") + X(b).toFixed(1) + " " + Y(sr.val(b)).toFixed(1)).join("");
+    el("path", { d, fill: "none", stroke: sr.color, "stroke-width": sr.width, "stroke-dasharray": sr.dash, "stroke-linejoin": "round", "stroke-linecap": "round" });
+  });
+  const guide = el("line", { y1: m.t, y2: m.t + ih, stroke: css("--ink"), "stroke-width": 1.2, "stroke-dasharray": "2 3" });
+  const dots = series.slice(1, 3).map((sr) => el("circle", { r: 4.5, fill: sr.color, stroke: css("--surface"), "stroke-width": 2 }));
+  const tip = document.createElement("div"); tip.className = "tip"; tip.style.display = "none"; host.appendChild(tip);
+  const place = () => { const x = X(state.budget); guide.setAttribute("x1", x); guide.setAttribute("x2", x); dots.forEach((d, i) => { d.setAttribute("cx", x); d.setAttribute("cy", Y(series[i + 1].val(state.budget))); }); };
+  place();
+  const bAt = (ev) => { const r = svg.getBoundingClientRect(); const px = ((ev.clientX - r.left) / r.width) * W; return Math.max(1, Math.min(100, Math.round(((px - m.l) / iw) * 100))); };
+  const setB = (b) => { state.budget = b; $("budget").value = b; renderDynamic(); place(); };
+  function hover(ev) {
+    const b = bAt(ev); let h = `<div style="color:var(--ink-2);margin-bottom:3px">${t("col_b")} ${num(b, 0)}%</div>`;
+    series.slice(1).forEach((sr) => { h += `<div><span class="sw${sr.dash !== "none" ? " dash" : ""}" style="background:${sr.color};border-color:${sr.color}"></span>${sr.label}: <b>${num(sr.val(b), 1)}%</b></div>`; });
+    tip.innerHTML = h; tip.style.display = "block";
+    const px = (X(b) / W) * host.clientWidth, w = tip.offsetWidth; tip.style.left = Math.max(w / 2, Math.min(host.clientWidth - w / 2, px)) + "px"; tip.style.top = "8px";
+  }
+  svg.addEventListener("pointermove", hover); svg.addEventListener("pointerleave", () => { tip.style.display = "none"; });
+  svg.addEventListener("pointerdown", (ev) => { setB(bAt(ev)); hover(ev); });
+  svg.addEventListener("keydown", (ev) => {
+    let nb = null;
+    if (ev.key === "ArrowLeft") nb = state.budget - 1; else if (ev.key === "ArrowRight") nb = state.budget + 1; else if (ev.key === "Home") nb = 1; else if (ev.key === "End") nb = 100;
+    if (nb != null) { setB(Math.max(1, Math.min(100, nb))); ev.preventDefault(); }
+  });
+  $("legend").innerHTML = series.map((sr) => `<span><span class="sw${sr.dash !== "none" ? " dash" : ""}" style="background:${sr.color};border-color:${sr.color}"></span>${sr.label}</span>`).join("");
+}
+
+function renderAll() { renderStatic(); renderChips(); renderDynamic(); renderCurve(); }
+
+$("budget").oninput = () => { state.budget = +$("budget").value; renderDynamic(); renderCurve(); };
+$("lang").onclick = () => { lang = lang === "es" ? "en" : "es"; try { localStorage.setItem("lang", lang); } catch (e) {} renderAll(); };
+$("theme").onclick = () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("theme", next); } catch (e) {}
+  renderAll();
+};
+try { const th = localStorage.getItem("theme"); if (th) document.documentElement.dataset.theme = th; } catch (e) {}
+{ const q = new URLSearchParams(location.search).get("theme"); if (q === "light" || q === "dark") document.documentElement.dataset.theme = q; }
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", renderAll);
+let rz; addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(renderCurve, 150); });
+renderAll();
+</script>
+</body>
+</html>

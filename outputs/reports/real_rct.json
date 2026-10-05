@@ -1,0 +1,142 @@
+{
+  "Mens E-Mail": {
+    "n_customers": 42613,
+    "randomized_ate": {
+      "ate": 0.07658956365153125,
+      "ci_low": 0.06995322354054365,
+      "ci_high": 0.08322590376251884,
+      "visit_rate_treated": 0.18275684047496127,
+      "visit_rate_control": 0.10616727682343002,
+      "n_treated": 21307,
+      "n_control": 21306
+    },
+    "n_seeds": 20,
+    "summary": {
+      "causal_forest": {
+        "qini_mean": 5.493539803506397,
+        "qini_sd": 23.819817445858398,
+        "seeds_qini_significant": 1,
+        "top30_uplift_mean": 0.07603824874538206,
+        "top30_uplift_sd": 0.007233797599897146,
+        "all_uplift_mean": 0.07658101607415231,
+        "top30_gain_over_random": -0.00054276732877023,
+        "seeds_beating_random_at_30": 10,
+        "mean_predicted_cate": 0.07558396443061656
+      },
+      "doubly_robust": {
+        "qini_mean": 25.986185007594024,
+        "qini_sd": 18.088497981457184,
+        "seeds_qini_significant": 4,
+        "top30_uplift_mean": 0.08810282825058541,
+        "top30_uplift_sd": 0.009101361944622667,
+        "all_uplift_mean": 0.07658101607415231,
+        "top30_gain_over_random": 0.011521812176433107,
+        "seeds_beating_random_at_30": 18,
+        "mean_predicted_cate": 0.07573705983126411
+      },
+      "s_learner": {
+        "qini_mean": 28.195330996001854,
+        "qini_sd": 28.93425937720827,
+        "seeds_qini_significant": 6,
+        "top30_uplift_mean": 0.08795831095409816,
+        "top30_uplift_sd": 0.008881636744184292,
+        "all_uplift_mean": 0.07658101607415231,
+        "top30_gain_over_random": 0.011377294879945873,
+        "seeds_beating_random_at_30": 18,
+        "mean_predicted_cate": 0.07537028148083932
+      },
+      "t_learner": {
+        "qini_mean": 10.390692976932437,
+        "qini_sd": 25.217608757805433,
+        "seeds_qini_significant": 4,
+        "top30_uplift_mean": 0.0827916488438041,
+        "top30_uplift_sd": 0.007829680041331303,
+        "all_uplift_mean": 0.07658101607415231,
+        "top30_gain_over_random": 0.0062106327696517995,
+        "seeds_beating_random_at_30": 12,
+        "mean_predicted_cate": 0.07596197121843931
+      },
+      "x_learner": {
+        "qini_mean": 17.989700455453494,
+        "qini_sd": 26.438558129801674,
+        "seeds_qini_significant": 3,
+        "top30_uplift_mean": 0.08383737299602326,
+        "top30_uplift_sd": 0.008650736341202987,
+        "all_uplift_mean": 0.07658101607415231,
+        "top30_gain_over_random": 0.0072563569218709574,
+        "seeds_beating_random_at_30": 17,
+        "mean_predicted_cate": 0.07583933511023737
+      }
+    }
+  },
+  "Womens E-Mail": {
+    "n_customers": 42693,
+    "randomized_ate": {
+      "ate": 0.045233106587052985,
+      "ci_low": 0.03889356087283511,
+      "ci_high": 0.05157265230127086,
+      "visit_rate_treated": 0.151400383410483,
+      "visit_rate_control": 0.10616727682343002,
+      "n_treated": 21387,
+      "n_control": 21306
+    },
+    "n_seeds": 20,
+    "summary": {
+      "causal_forest": {
+        "qini_mean": 105.09826385204583,
+        "qini_sd": 11.636125699064799,
+        "seeds_qini_significant": 20,
+        "top30_uplift_mean": 0.07342680739811394,
+        "top30_uplift_sd": 0.008271688403059441,
+        "all_uplift_mean": 0.04323647642885792,
+        "top30_gain_over_random": 0.030190330969256034,
+        "seeds_beating_random_at_30": 20,
+        "mean_predicted_cate": 0.04626994327417609
+      },
+      "doubly_robust": {
+        "qini_mean": 127.28980148357114,
+        "qini_sd": 19.97515904352581,
+        "seeds_qini_significant": 20,
+        "top30_uplift_mean": 0.07225952295476809,
+        "top30_uplift_sd": 0.009052983400080952,
+        "all_uplift_mean": 0.04323647642885792,
+        "top30_gain_over_random": 0.029023046525910173,
+        "seeds_beating_random_at_30": 20,
+        "mean_predicted_cate": 0.04628630758130514
+      },
+      "s_learner": {
+        "qini_mean": 114.28974453557562,
+        "qini_sd": 10.1633522418,
+        "seeds_qini_significant": 20,
+        "top30_uplift_mean": 0.06966563126752216,
+        "top30_uplift_sd": 0.006779851701865804,
+        "all_uplift_mean": 0.04323647642885792,
+        "top30_gain_over_random": 0.026429154838664266,
+        "seeds_beating_random_at_30": 20,
+        "mean_predicted_cate": 0.046075781910943484
+      },
+      "t_learner": {
+        "qini_mean": 62.82685121236216,
+        "qini_sd": 15.87024098771563,
+        "seeds_qini_significant": 18,
+        "top30_uplift_mean": 0.06025977923236624,
+        "top30_uplift_sd": 0.007160503947650252,
+        "all_uplift_mean": 0.04323647642885792,
+        "top30_gain_over_random": 0.017023302803508323,
+        "seeds_beating_random_at_30": 20,
+        "mean_predicted_cate": 0.046543938071272294
+      },
+      "x_learner": {
+        "qini_mean": 79.64870346453317,
+        "qini_sd": 14.778277795428439,
+        "seeds_qini_significant": 20,
+        "top30_uplift_mean": 0.06523252808086377,
+        "top30_uplift_sd": 0.007614224508218954,
+        "all_uplift_mean": 0.04323647642885792,
+        "top30_gain_over_random": 0.02199605165200587,
+        "seeds_beating_random_at_30": 20,
+        "mean_predicted_cate": 0.046457063512548656
+      }
+    }
+  }
+}
