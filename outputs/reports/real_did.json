@@ -1,0 +1,84 @@
+{
+  "panel": {
+    "counties": 500,
+    "periods": 5,
+    "cohort_sizes_counties": {
+      "2004": 20,
+      "2006": 40,
+      "2007": 131
+    },
+    "never_treated_counties": 309
+  },
+  "cells_vs_reference": [
+    {
+      "Group": 2004,
+      "Time": 2004,
+      "mine": -0.0105,
+      "ref_att": -0.0105,
+      "diff": -0.0
+    },
+    {
+      "Group": 2004,
+      "Time": 2005,
+      "mine": -0.07042,
+      "ref_att": -0.0704,
+      "diff": -2e-05
+    },
+    {
+      "Group": 2004,
+      "Time": 2006,
+      "mine": -0.13726,
+      "ref_att": -0.1373,
+      "diff": 4e-05
+    },
+    {
+      "Group": 2004,
+      "Time": 2007,
+      "mine": -0.10081,
+      "ref_att": -0.1008,
+      "diff": -1e-05
+    },
+    {
+      "Group": 2006,
+      "Time": 2006,
+      "mine": -0.00459,
+      "ref_att": -0.0046,
+      "diff": 1e-05
+    },
+    {
+      "Group": 2006,
+      "Time": 2007,
+      "mine": -0.04122,
+      "ref_att": -0.0412,
+      "diff": -2e-05
+    },
+    {
+      "Group": 2007,
+      "Time": 2007,
+      "mine": -0.02605,
+      "ref_att": -0.0261,
+      "diff": 5e-05
+    }
+  ],
+  "max_abs_diff_vs_reference": 4.6e-05,
+  "overall": {
+    "reference_csdid": {
+      "att": -0.04,
+      "se": 0.012
+    },
+    "this_project_weighted": {
+      "att": -0.04,
+      "se": 0.0117,
+      "ci_low": -0.063,
+      "ci_high": -0.0189,
+      "n_boot": 500
+    },
+    "naive_twfe": {
+      "att": -0.0365,
+      "se": 0.0148,
+      "ci_low": -0.0656,
+      "ci_high": -0.0075
+    },
+    "unweighted_mean_of_cells": -0.0558
+  }
+}
